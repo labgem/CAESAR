@@ -11,11 +11,11 @@ from pathlib import Path
 ## Functions ##
 ###############
 
-def filter_sequence_properties(blast_file, pid, cov, min_len, max_len):
+def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
     """Filters sequences based on length, %id and %cov
 
     Args:
-        blast_file (Path): The path of blastp output
+        blastp_file (Path): The path of blastp output
         pid (float): %id treshold
         cov (float): %cov treshold
         min_len (int): minmum length
@@ -25,13 +25,14 @@ def filter_sequence_properties(blast_file, pid, cov, min_len, max_len):
         map_seq (dict): as key the db where come from the sequences and a the
         set of sequence id as value
         
-        blastp_lines (str): lines of sequences which pass the filter
+        blastp_lines (dict): as key the db where come from the sequences and 
+        another dict as value with the key value pair: seq id - blastp line
     """
     
-    blastp_lines = ""
+    map_blastp = {}
     map_seq = {}
     
-    with open(blast_file, "r") as f:
+    with open(blastp_file, "r") as f:
         for line in f:
             ls = line.split()
             p = float(ls[5])
@@ -55,23 +56,25 @@ def filter_sequence_properties(blast_file, pid, cov, min_len, max_len):
                 seq_id = re.search("\\|(\\w+)\\|", ls[2]).group(1)
                 try:
                     map_seq["uniprot"].add(seq_id)
+                    map_blastp["uniprot"][seq_id] = line
                 except KeyError:
                     map_seq["uniprot"] = set()
                     map_seq["uniprot"].add(seq_id)
+                    map_blastp["uniprot"] = {}
             
             else:
                 seq_id = ls[2]
-                source = re.search("matches_(.+?)\.tsv", blast_file.name).group(1)
+                source = re.search("matches_(.+?)\.tsv", blastp_file.name).group(1)
                 
                 try:
                     map_seq[source].add(seq_id)
+                    map_blastp[source][seq_id] = line
                 except KeyError:
                     map_seq[source] = set()
                     map_seq[source].add(seq_id)
-            
-            blastp_lines += line
+                    map_blastp[source] = {}
     
-    return map_seq, blastp_lines
+    return map_seq, map_blastp
 
 ##########
 ## MAIN ##
@@ -105,14 +108,17 @@ if __name__ == "__main__":
 
     blastp_list_file = Path(args.data).glob("matches*.tsv")
     map_seq = {}
-    
+    blastp_map = {}
     
     for blastp_file in blastp_list_file:
         logging.info(blastp_file.name)
-        seq, blastp_lines = filter_sequence_properties(blast_file=blastp_file,
+        seq, blastp_lines = filter_sequence_properties(blastp_file=blastp_file,
                                                            pid=args.id,
                                                            cov=args.cov,
                                                            max_len=args.max,
                                                            min_len=args.min)
         
         map_seq.update(seq)
+        source = re.search("matches_(.+?)\.tsv", blastp_file.name).group(1)
+        blastp_map.update(blastp_lines)
+    
