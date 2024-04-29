@@ -6,11 +6,30 @@ import argparse
 import logging
 import re
 import requests
+import subprocess
+import yaml
 from pathlib import Path
 
 ###############
 ## Functions ##
 ###############
+
+def read_yaml_config(config_path):
+    
+    with open(config_path, "r") as f:
+        yml = yaml.safe_load(f)
+        
+    db_path = {}
+    
+    for key in yml:
+        if "db" in key:
+            db_name = key[:-3].lower()
+            db_path[db_name] = {}
+            
+            for db_format in yml[key]:
+                db_path[db_name].update(db_format)
+    
+    return db_path
 
 def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
     """Filters sequences based on length, %id and %cov
@@ -142,6 +161,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--outdir", type=str, default="./", metavar="",
                         help="output directory [default: ./]")
+    parser.add_argument("-c", "--config", type=str, metavar="", required=True,
+                        help="the configuration file in yaml format")
     parser.add_argument("-d", "--data", type=str, metavar="", required=True,
                         help="directory containing blast output")
     parser.add_argument("-q", "--query", type=str, metavar="", required=True,
@@ -160,6 +181,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    config_path = Path(args.config).absolute()
+    db_path = read_yaml_config(config_path)
+    
     outdir = Path(args.outdir).absolute()
 
     TAXON_SUPEKINGDOMS = {"A":"2157", "B":"2", "E":"2759", "AB":"2|2157",
