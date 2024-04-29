@@ -148,6 +148,22 @@ def superkindgoms_filter(lineage, taxon_pattern):
     
     return list_id
 
+def run_seqkit(list_ids_file, db_path):
+    """Runs seqkit grep
+
+    Args:
+        list_ids_file (Path): file containing the ids to retrieve
+        db_path (Path): database path
+
+    Returns:
+        _type_: _description_
+    """
+    
+    command = f"seqkit grep -f {list_ids_file} {db_path}"
+
+    result = subprocess.run(command.split(), check=True, capture_output=True)
+    
+    return result
 
 ##########
 ## MAIN ##
@@ -187,7 +203,7 @@ if __name__ == "__main__":
     outdir = Path(args.outdir).absolute()
 
     TAXON_SUPEKINGDOMS = {"A":"2157", "B":"2", "E":"2759", "AB":"2|2157",
-                     "BE":"2|2759", "AE":"2|2759","ABE":"2|2157|2759"}
+                     "BE":"2|2759", "AE":"2157|2759","ABE":"2|2157|2759"}
     
     taxon_pattern = TAXON_SUPEKINGDOMS[''.join(sorted(args.tax))]
     logging.info(f"selected superkingdoms: {args.tax}")
@@ -222,9 +238,11 @@ if __name__ == "__main__":
             n_seq_id = len(map_seq[key])
             
             if taxon_pattern != "2|2157|2759":
+                # Filters based on superkingdoms
                 logging.info("taxonomy filtering for uniprot sequences")
                 ids_checked = []
                 
+                # get lineage and filter it
                 for i in range(0, n_seq_id, 500):
                     logging.info(f"{i}/{n_seq_id}")
                     lineage = uniprotkb_accessions(map_seq[key][i:i+500], "lineage")
@@ -232,6 +250,7 @@ if __name__ == "__main__":
                                                             taxon_pattern))
                 logging.info(f"{n_seq_id}/{n_seq_id}")
             
+                # get fasta for sequences that pass the filter
                 logging.info(f"retrieves fasta for uniprot sequences")
                 for i in range(0, len(ids_checked), 500):
                     logging.info(f"{i}/{len(ids_checked)}")
@@ -239,10 +258,12 @@ if __name__ == "__main__":
                     fasta += sequences.text
                 logging.info(f"{len(ids_checked)}/{len(ids_checked)}")
                 
+                # get the blastp lines for the checked sequences
                 blastp_filtered_lines += "".join([blastp_map[si]
                                                   for si in ids_checked])
                 
             else:
+                # Directly get the fasta for each sequence id
                 logging.info(f"retrieves fasta for uniprot sequences")
                 for i in range(0, n_seq_id, 500):
                     logging.info(f"{i}/{n_seq_id}")
@@ -253,6 +274,56 @@ if __name__ == "__main__":
                 blastp_filtered_lines += "".join([blastp_map[si]
                                                   for si in map_seq[key]])
         
+        elif key == "cloaca":
+            # We keep only complete gene
+            # adjusts the pattern to the selected superkingdom
+            if taxon_pattern in ["2|2157", "2|2157|2759"]:
+                pattern = "complete"
+            elif taxon_pattern in ["2157", "2157|2759"]:
+                pattern = "archaea complete"
+            elif taxon_pattern in ["2", "2|2759"]:
+                pattern = "bacteria complete"
+            
+            # We need the nucleic sequences (fna) to filter cloaca
+            # sequence ids based on superkingdoms
+            # First, we need to create a file containing all the ids
+            cloaca_prefilter_file = outdir / "cloaca_prefilter.txt"
+            cloaca_prefilter_file.write_text("\n".join(map_seq[key]))
+            
+            # Runs seqkit to obtain nucleic sequences
+            logging.info("search cloaca nucleic sequence with seqkit")
+            result = run_seqkit(cloaca_prefilter_file, db_path[key]["fna"])
+            
+            ids_checked = []
+            
+            if result.returncode != 0:
+                logging.error("An error has occured during seqkit process to "
+                              "obtain nucleic squences for Cloaca:"
+                              f" {result.returncode}\n{result.stderr.decode('utf-8')}")
+            else:
+                logging.info("filters cloaca sequences based on superkingdoms "
+                             "and removes non-complete gene")
+                for line in result.stdout.decode("utf-8").split("\n"):
+                    if line.startswith(">") and pattern in line:
+                        ids_checked.append(line[1:].split()[0])
+            
+            # New file for the filtered ids
+            cloaca_filtered_file = outdir / "cloaca_filtered.txt"
+            cloaca_filtered_file.write_text("\n".join(ids_checked))
+        
+            logging.info("retrieves protein sequences")
+            # Runs seqkit to obtain amino acid sequences
+            result = run_seqkit(cloaca_filtered_file, db_path[key]["faa"])
+            if result.returncode != 0:
+                logging.error("An error has occured during seqkit process to "
+                              "obtain nucleic squences for Cloaca:"
+                              f" {result.returncode}\n{result.stderr.decode('utf-8')}")
+            else:
+                fasta = result.stdout.decode("utf-8")
+                logging.info("done")
+            
+            blastp_filtered_lines += "".join([blastp_map[si]
+                                              for si in ids_checked])
         if i == 0:
             fasta_file.write_text(fasta)
             blastp_filtered_file.write_text(blastp_filtered_lines)
