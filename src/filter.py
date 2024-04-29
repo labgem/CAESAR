@@ -5,6 +5,7 @@
 import argparse
 import logging
 import re
+import requests
 from pathlib import Path
 
 ###############
@@ -76,6 +77,58 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
     
     return map_seq, map_blastp
 
+def uniprotkb_accessions(query, data_type):
+    """Requests uniprotkb rest api
+
+    Args:
+        query (list): list of sequence IDs
+        data_type (str): fasta to retrieve fasta or lineage to retrieve lineage
+
+    Returns:
+        _type_: _description_
+    """
+    
+    query_str = ",".join(query)
+    
+    if data_type == "fasta":
+        url = f"https://rest.uniprot.org/uniprotkb/accessions?accessions={query_str}&format=fasta&size=500"
+    
+    elif data_type == "lineage":
+        url = f"https://rest.uniprot.org/uniprotkb/accessions?accessions={query_str}&fields=accession,lineage_ids&format=tsv&size=500"
+        
+    results = requests.get(url)
+    
+    return results
+
+def superkindgoms_filter(lineage, taxon_pattern):
+    """Filter candidates by suoerkingdom
+    
+    Archaea = 2157
+    Bacteria = 2
+    Eukaryota = 2759
+
+    Args:
+        lineage (str): lineage tsv from uniprot
+        taxon_pattern (str): taxon id to search separate by | if more than one
+
+    Returns:
+        list_id: list of uniqud ids corresponding to the selected candidate
+    """
+    
+    set_id = set()
+    
+    for line in lineage.split("\n"):
+        superkingdom = re.search(f"({taxon_pattern})\\s.superkingdom.", line)
+        if superkingdom is not None:
+            set_id.add(line.split("\t")[0])
+        else:
+            continue
+        
+    list_id = list(set_id)
+    
+    return list_id
+
+
 ##########
 ## MAIN ##
 ##########
@@ -106,6 +159,13 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    TAXON_SUPEKINGDOMS = {"A":"2157", "B":"2", "E":"2759", "AB":"2|2157",
+                     "BE":"2|2759", "AE":"2|2759","ABE":"2|2157|2759"}
+    
+    taxon_pattern = TAXON_SUPEKINGDOMS[''.join(sorted(args.tax))]
+    logging.info(f"selected superkingdoms: {args.tax}")
+    logging.info(f"taxon pattern: {taxon_pattern}")
+
     blastp_list_file = Path(args.data).glob("matches*.tsv")
     map_seq = {}
     blastp_map = {}
@@ -122,3 +182,19 @@ if __name__ == "__main__":
         source = re.search("matches_(.+?)\.tsv", blastp_file.name).group(1)
         blastp_map.update(blastp_lines)
     
+    for key in map_seq:
+        
+        if key == "uniprot":
+            logging.info("taxonomy filtering for uniprot")
+            map_seq[key] = list(map_seq[key])
+            n_seq_id = len(map_seq[key])
+            
+            for i in range(0, n_seq_id, 500):
+                logging.info(f"{i}/{n_seq_id}")
+                if taxon_pattern != "2|2157|2759":
+                    lineage = uniprotkb_accessions(map_seq[key][i:i+500], "lineage")
+                    ids_checked = superkindgoms_filter(lineage.text, taxon_pattern)
+                else:
+                    pass
+            
+            logging.info(f"{n_seq_id}/{n_seq_id}")
