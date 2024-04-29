@@ -200,7 +200,7 @@ if __name__ == "__main__":
                 for i in range(0, n_seq_id, 500):
                     logging.info(f"{i}/{n_seq_id}")
                     lineage = uniprotkb_accessions(map_seq[key][i:i+500], "lineage")
-                    ids_checked.append(superkindgoms_filter(lineage.text,
+                    ids_checked.extend(superkindgoms_filter(lineage.text,
                                                             taxon_pattern))
                 logging.info(f"{n_seq_id}/{n_seq_id}")
             
