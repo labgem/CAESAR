@@ -159,6 +159,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    outdir = Path(args.outdir).absolute()
+
     TAXON_SUPEKINGDOMS = {"A":"2157", "B":"2", "E":"2759", "AB":"2|2157",
                      "BE":"2|2759", "AE":"2|2759","ABE":"2|2157|2759"}
     
@@ -182,19 +184,40 @@ if __name__ == "__main__":
         source = re.search("matches_(.+?)\.tsv", blastp_file.name).group(1)
         blastp_map.update(blastp_lines)
     
-    for key in map_seq:
+    for i, key in enumerate(map_seq):
+        
+        fasta_file = outdir / "filtered_sequences.fasta"
+        fasta = ""
         
         if key == "uniprot":
-            logging.info("taxonomy filtering for uniprot")
             map_seq[key] = list(map_seq[key])
             n_seq_id = len(map_seq[key])
             
-            for i in range(0, n_seq_id, 500):
-                logging.info(f"{i}/{n_seq_id}")
-                if taxon_pattern != "2|2157|2759":
+            if taxon_pattern != "2|2157|2759":
+                logging.info("taxonomy filtering for uniprot sequences")
+                ids_checked = []
+                
+                for i in range(0, n_seq_id, 500):
+                    logging.info(f"{i}/{n_seq_id}")
                     lineage = uniprotkb_accessions(map_seq[key][i:i+500], "lineage")
-                    ids_checked = superkindgoms_filter(lineage.text, taxon_pattern)
-                else:
-                    pass
+                    ids_checked.append(superkindgoms_filter(lineage.text,
+                                                            taxon_pattern))
+                logging.info(f"{n_seq_id}/{n_seq_id}")
             
-            logging.info(f"{n_seq_id}/{n_seq_id}")
+                logging.info(f"retrieves fasta for uniprot sequences")
+                for i in range(0, len(ids_checked), 500):
+                    logging.info(f"{i}/{len(ids_checked)}")
+                    sequences = uniprotkb_accessions(ids_checked[i:i+500], "fasta")
+                    fasta += sequences.text
+                logging.info(f"{len(ids_checked)}/{len(ids_checked)}")
+                
+            else:
+                logging.info(f"retrieves fasta for uniprot sequences")
+                for i in range(0, n_seq_id, 500):
+                    logging.info(f"{i}/{n_seq_id}")
+                    sequences = uniprotkb_accessions(map_seq[key][i:i+500], "fasta")
+                    fasta += sequences.text
+                logging.info(f"{n_seq_id}/{n_seq_id}")
+        
+        if fasta != "":
+            fasta_file.write_text(fasta)
