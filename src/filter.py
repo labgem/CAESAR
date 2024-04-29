@@ -26,8 +26,8 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
         map_seq (dict): as key the db where come from the sequences and a the
         set of sequence id as value
         
-        blastp_lines (dict): as key the db where come from the sequences and 
-        another dict as value with the key value pair: seq id - blastp line
+        blastp_lines (dict): as key the sequence ID and the corresponding lines
+        in blastp output as value
     """
     
     map_blastp = {}
@@ -57,11 +57,9 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
                 seq_id = re.search("\\|(\\w+)\\|", ls[2]).group(1)
                 try:
                     map_seq["uniprot"].add(seq_id)
-                    map_blastp["uniprot"][seq_id] = line
                 except KeyError:
                     map_seq["uniprot"] = set()
                     map_seq["uniprot"].add(seq_id)
-                    map_blastp["uniprot"] = {}
             
             else:
                 seq_id = ls[2]
@@ -69,11 +67,14 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
                 
                 try:
                     map_seq[source].add(seq_id)
-                    map_blastp[source][seq_id] = line
                 except KeyError:
                     map_seq[source] = set()
                     map_seq[source].add(seq_id)
-                    map_blastp[source] = {}
+    
+            try:
+                map_blastp[seq_id] += line
+            except KeyError:
+                map_blastp[seq_id] = line
     
     return map_seq, map_blastp
 
@@ -189,6 +190,9 @@ if __name__ == "__main__":
         fasta_file = outdir / "filtered_sequences.fasta"
         fasta = ""
         
+        blastp_filtered_file = outdir / "filtered_data.tsv"
+        blastp_filtered_lines = ""
+        
         if key == "uniprot":
             map_seq[key] = list(map_seq[key])
             n_seq_id = len(map_seq[key])
@@ -211,6 +215,9 @@ if __name__ == "__main__":
                     fasta += sequences.text
                 logging.info(f"{len(ids_checked)}/{len(ids_checked)}")
                 
+                blastp_filtered_lines += "".join([blastp_map[si]
+                                                  for si in ids_checked])
+                
             else:
                 logging.info(f"retrieves fasta for uniprot sequences")
                 for i in range(0, n_seq_id, 500):
@@ -218,6 +225,15 @@ if __name__ == "__main__":
                     sequences = uniprotkb_accessions(map_seq[key][i:i+500], "fasta")
                     fasta += sequences.text
                 logging.info(f"{n_seq_id}/{n_seq_id}")
+                
+                blastp_filtered_lines += "".join([blastp_map[si]
+                                                  for si in map_seq[key]])
         
-        if fasta != "":
+        if i == 0:
             fasta_file.write_text(fasta)
+            blastp_filtered_file.write_text(blastp_filtered_lines)
+        else:
+            with open(fasta_file, "a") as f:
+                f.write(fasta)
+            with open(blastp_filtered_file, 'a') as f:
+                f.write(blastp_filtered_lines)
