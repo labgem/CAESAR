@@ -93,9 +93,9 @@ if __name__ == "__main__":
     parser.add_argument("-q", "--query", type=str, metavar="", required=True,
                         help="set of reference sequences")
     parser.add_argument('--id', type=float, metavar="", default=30.0,
-                        help=r"% identity threshold"" [default: 30.0]")
+                        help="percentage identity threshold"" [default: 30.0]")
     parser.add_argument("--cov", type=float, metavar="", default=80.0,
-                        help=r"% coverage threshold"" [default: 80.0]")
+                        help="percentage coverage threshold"" [default: 80.0]")
     parser.add_argument("--min", type=int, metavar="", default=200,
                         help="minimum candidate sequence length [default: 200]")
     parser.add_argument("--max", type=int, metavar="", default=1000,
