@@ -272,11 +272,14 @@ if __name__ == "__main__":
                                                            max_len=args.max,
                                                            min_len=args.min)
         
-        map_seq.update(seq)
+        key = list(seq.keys())[0]
+        if key in map_seq:
+            map_seq[key].update(seq[key])
+        else:
+            map_seq.update(seq)
         blastp_map.update(blastp_lines)
     
     for i, key in enumerate(map_seq):
-        
         fasta_file = outdir / "filtered_sequences.fasta"
         fasta = ""
         
