@@ -82,7 +82,7 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
             
             else:
                 seq_id = ls[2]
-                source = re.search("matches_(.+?)\.tsv", blastp_file.name).group(1)
+                source = re.search("matches_(.+?)\\.tsv", blastp_file.name).group(1)
                 
                 try:
                     map_seq[source].add(seq_id)
@@ -156,7 +156,7 @@ def run_seqkit(list_ids_file, db_path):
         db_path (Path): database path
 
     Returns:
-        _type_: _description_
+        result (CompletedProcess): the completed process
     """
     
     command = f"seqkit grep -f {list_ids_file} {db_path}"
@@ -164,6 +164,26 @@ def run_seqkit(list_ids_file, db_path):
     result = subprocess.run(command.split(), check=True, capture_output=True)
     
     return result
+
+def cloaca_filter(sequences, pattern):
+    """Filters cloaca sequences based on superkingdoms and removes non-complete
+    genes
+
+    Args:
+        sequences (str): all sequences
+        pattern (str): selection pattern
+
+    Returns:
+        ids_checked (list): ids selected
+    """
+    
+    ids_checked = []
+    
+    for line in sequences.split("\n"):
+        if line.startswith(">") and pattern in line:
+            ids_checked.append(line[1:].split()[0])
+      
+    return ids_checked
 
 ##########
 ## MAIN ##
@@ -222,7 +242,6 @@ if __name__ == "__main__":
                                                            min_len=args.min)
         
         map_seq.update(seq)
-        source = re.search("matches_(.+?)\.tsv", blastp_file.name).group(1)
         blastp_map.update(blastp_lines)
     
     for i, key in enumerate(map_seq):
@@ -303,9 +322,8 @@ if __name__ == "__main__":
             else:
                 logging.info("filters cloaca sequences based on superkingdoms "
                              "and removes non-complete gene")
-                for line in result.stdout.decode("utf-8").split("\n"):
-                    if line.startswith(">") and pattern in line:
-                        ids_checked.append(line[1:].split()[0])
+                ids_checked.extend(cloaca_filter(result.stdout.decode("utf-8"),
+                                                 pattern))
             
             # New file for the filtered ids
             cloaca_filtered_file = outdir / "cloaca_filtered.txt"
