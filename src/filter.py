@@ -185,6 +185,37 @@ def cloaca_filter(sequences, pattern):
       
     return ids_checked
 
+def tara_filter(sequences, pattern):
+    """Filters TARA sequences, removes non-complete gene
+
+    Args:
+        sequences (str): all sequences
+        pattern (): selection pattern
+
+    Returns:
+        ids_checked (list): ids selected
+        fasta (str): sequences selected
+    """
+    
+    seq_id = ""
+    ids_checked = []
+    fasta = ""
+    
+    
+    for line in sequences.split("\n"):
+        if line.startswith(">"):
+            if pattern in line:
+                seq_id = line[1:].split()[0]
+                ids_checked.append(seq_id)
+                fasta += line + "\n"
+            else:
+                seq_id = ""
+        
+        elif seq_id != "":
+            fasta += line + "\n"
+            
+    return ids_checked, fasta
+
 ##########
 ## MAIN ##
 ##########
@@ -342,6 +373,35 @@ if __name__ == "__main__":
             
             blastp_filtered_lines += "".join([blastp_map[si]
                                               for si in ids_checked])
+            
+        elif key == "tara":
+            if taxon_pattern != "2759":
+                
+                # We create a file containing all the ids to retrieve
+                tara_prefilter_file = outdir / "tara_prefilter.txt"
+                tara_prefilter_file.write_text("\n".join(map_seq[key]))
+                
+                # Runs seqkit to obtain the protein sequences
+                logging.info("retrieves TARA protein sequences")
+                result = run_seqkit(tara_prefilter_file, db_path[key]["faa"])
+                
+                seq_id = ""
+                ids_checked = []
+                
+                if result.returncode != 0:
+                    logging.error("An error has occured during seqkit process to "
+                                  "obtain protein squences for TARA:"
+                                  f" {result.returncode}\n{result.stderr.decode('utf-8')}")
+                else:
+                    logging.info("filters TARA sequences, removes non-complete gene")
+                    ids_selected, fasta = tara_filter(result.stdout.decode("utf-8"),
+                                                      "gene_type:complete")
+                    
+                    ids_checked.extend(ids_selected)
+                
+                blastp_filtered_lines += "".join([blastp_map[si]
+                                              for si in ids_checked])
+        
         if i == 0:
             fasta_file.write_text(fasta)
             blastp_filtered_file.write_text(blastp_filtered_lines)
