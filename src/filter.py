@@ -3,11 +3,14 @@
 #############
 
 import argparse
+import datetime
 import logging
 import re
 import requests
 import subprocess
+import textwrap
 import yaml
+from Bio import Entrez
 from pathlib import Path
 
 ###############
@@ -20,6 +23,7 @@ def read_yaml_config(config_path):
         yml = yaml.safe_load(f)
         
     db_path = {}
+    mail = ""
     
     for key in yml:
         if "db" in key:
@@ -28,8 +32,11 @@ def read_yaml_config(config_path):
             
             for db_format in yml[key]:
                 db_path[db_name].update(db_format)
+        
+        if key == "mail":
+            mail = yml[key]
     
-    return db_path
+    return db_path, mail
 
 def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
     """Filters sequences based on length, %id and %cov
@@ -216,6 +223,95 @@ def tara_filter(sequences, pattern):
             
     return ids_checked, fasta
 
+def efecth_ncbi_genpept(query, mail):
+    """Requests ncbi Entrez to retrieve genpept
+
+    Args:
+        query (list): list of sequence IDs
+        mail (str): email for Entrez
+
+    Returns:
+        handle (HTTTPResponse): the response
+    """
+    
+    Entrez.email = mail
+    
+    query_str = ",".join(query)
+    
+    handle = Entrez.efetch(db="protein", id=query_str, rettype="gp",
+                           retmode="xml")
+    
+    return handle
+
+def read_genpept(handle, taxon_pattern):
+    """Filters and get sequences
+
+    Args:
+        handle (HTTTPResponse): the response
+        taxon_pattern (str): taxon name separated by | if more than one
+
+    Returns:
+        ids_checked (list): ids selected
+        fasta (str): sequences selected
+    """
+    
+    ids_checked = []
+    fasta = ""
+    
+    record = Entrez.read(handle)
+    
+    for elem in record:
+        seq_id = ""
+        single_fasta = ""
+        tax_id = ""
+        cds = False
+        
+        if re.match(taxon_pattern, elem['GBSeq_taxonomy']):
+            for feature in elem['GBSeq_feature-table']:
+                if feature['GBFeature_key'] == "CDS":
+                    cds = True
+                if feature['GBFeature_key'] == "source":
+                    for quals in feature['GBFeature_quals']:
+                        if quals['GBQualifier_name'] == "db_xref":
+                            tax_id = quals['GBQualifier_value']
+                            tax_id = re.search("taxon:(\\d+)", tax_id).group(1)
+        
+        if cds == True:
+            seq_id = elem['GBSeq_accession-version']
+            single_fasta = f">{seq_id} {elem['GBSeq_definition']}"
+            single_fasta = single_fasta.replace("[", "OS=")
+            single_fasta = single_fasta.replace("]", "")
+            single_fasta += f" {tax_id}\n"
+            single_fasta += textwrap.fill(elem['GBSeq_sequence'].upper(), 60)
+            
+            ids_checked.append(seq_id)
+            fasta += single_fasta + "\n"
+        
+    return ids_checked, fasta
+
+def write_data(fasta_file, fasta, out_file, out_lines, i):
+    """Writes data
+
+    Args:
+        fasta_file (Path): fasta file
+        fasta (str): selected sequences
+        out_file (Path): file containing the output of blast for the selected 
+        sequences
+        out_lines (str): blast output lines of selected sequences
+        i (int): int
+    """
+    
+    if i == 0:
+        fasta_file.write_bytes(fasta)    
+        out_file.write_text(out_lines)
+            
+    else:
+        with open(fasta_file, "a") as f:
+            f.write(fasta)
+                
+        with open(out_file, "a") as f:
+            f.write(out_lines)
+
 ##########
 ## MAIN ##
 ##########
@@ -249,16 +345,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_path = Path(args.config).absolute()
-    db_path = read_yaml_config(config_path)
+    db_path, mail = read_yaml_config(config_path)
     
     outdir = Path(args.outdir).absolute()
 
-    TAXON_SUPEKINGDOMS = {"A":"2157", "B":"2", "E":"2759", "AB":"2|2157",
-                     "BE":"2|2759", "AE":"2157|2759","ABE":"2|2157|2759"}
-    
-    taxon_pattern = TAXON_SUPEKINGDOMS[''.join(sorted(args.tax))]
     logging.info(f"selected superkingdoms: {args.tax}")
-    logging.info(f"taxon pattern: {taxon_pattern}")
 
     blastp_list_file = Path(args.data).glob("matches*.tsv")
     map_seq = {}
@@ -289,6 +380,11 @@ if __name__ == "__main__":
         if key == "uniprot":
             map_seq[key] = list(map_seq[key])
             n_seq_id = len(map_seq[key])
+            
+            taxon_superkingdom = {"A":"2157", "B":"2", "E":"2759", "AB":"2|2157",
+                                  "BE":"2|2759", "AE":"2157|2759",
+                                  "ABE":"2|2157|2759"}
+            taxon_pattern = taxon_superkingdom[''.join(sorted(args.tax))]
             
             if taxon_pattern != "2|2157|2759":
                 # Filters based on superkingdoms
@@ -327,15 +423,43 @@ if __name__ == "__main__":
                 blastp_filtered_lines += "".join([blastp_map[si]
                                                   for si in map_seq[key]])
         
+        elif key == "nr":
+            map_seq[key] = list(map_seq[key])
+            n_seq_id = len(map_seq[key])
+            
+            taxon_superkingdom = {"A":"Archaea", "B":"Bacteria", "E":"Eukaryota",
+                                  "AB":"Archaea|Bacteria",
+                                  "BE":"Bacteria|Eukaryota",
+                                  "AE":"Archaea|Eukaryota",
+                                  "ABE":"Archaea|Bacteria|Eukaryota"}
+            taxon_pattern = taxon_superkingdom[''.join(sorted(args.tax))]
+            
+            ids_checked = []
+            
+            logging.info("taxonomy filtering and retrieve fasta for nr sequences")
+            start = datetime.datetime.now()
+            for i in range(0, len(map_seq[key]), 200):
+                logging.info(f"{i}/{n_seq_id}")
+                handle = efecth_ncbi_genpept(map_seq[key][i:i+200], mail)
+
+                ids_selected, seq_selected = read_genpept(handle, taxon_pattern)
+                ids_checked.extend(ids_selected)
+                fasta += seq_selected
+                
+                blastp_filtered_lines += "".join([blastp_map[si]
+                                                for si in ids_checked])
+            logging.info(f"{n_seq_id}/{n_seq_id}")
+            logging.info(f"done - {datetime.datetime.now() - start}")
+            
         elif key == "cloaca":
             # We keep only complete gene
             # adjusts the pattern to the selected superkingdom
-            if taxon_pattern in ["2|2157", "2|2157|2759"]:
-                pattern = "complete"
-            elif taxon_pattern in ["2157", "2157|2759"]:
-                pattern = "archaea complete"
-            elif taxon_pattern in ["2", "2|2759"]:
-                pattern = "bacteria complete"
+            if ''.join(sorted(args.tax)) in ["AB", "ABE"]:
+                taxon_pattern = "complete"
+            elif ''.join(sorted(args.tax)) in ["A", "AE"]:
+                taxon_pattern = "archaea complete"
+            elif ''.join(sorted(args.tax)) in ["B", "BE"]:
+                taxon_pattern = "bacteria complete"
             
             # We need the nucleic sequences (fna) to filter cloaca
             # sequence ids based on superkingdoms
@@ -357,7 +481,7 @@ if __name__ == "__main__":
                 logging.info("filters cloaca sequences based on superkingdoms "
                              "and removes non-complete gene")
                 ids_checked.extend(cloaca_filter(result.stdout.decode("utf-8"),
-                                                 pattern))
+                                                 taxon_pattern))
             
             # New file for the filtered ids
             cloaca_filtered_file = outdir / "cloaca_filtered.txt"
@@ -378,7 +502,7 @@ if __name__ == "__main__":
                                               for si in ids_checked])
             
         elif key == "tara":
-            if taxon_pattern != "2759":
+            if args.tax != "E":
                 
                 # We create a file containing all the ids to retrieve
                 tara_prefilter_file = outdir / "tara_prefilter.txt"
@@ -404,12 +528,5 @@ if __name__ == "__main__":
                 
                 blastp_filtered_lines += "".join([blastp_map[si]
                                               for si in ids_checked])
-        
-        if i == 0:
-            fasta_file.write_text(fasta)
-            blastp_filtered_file.write_text(blastp_filtered_lines)
-        else:
-            with open(fasta_file, "a") as f:
-                f.write(fasta)
-            with open(blastp_filtered_file, 'a') as f:
-                f.write(blastp_filtered_lines)
+                
+        write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,i)
