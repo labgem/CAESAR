@@ -9,8 +9,10 @@ import re
 import requests
 import subprocess
 import textwrap
+import time
 import yaml
 from Bio import Entrez
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ###############
@@ -124,6 +126,8 @@ def uniprotkb_accessions(query, data_type):
         url = f"https://rest.uniprot.org/uniprotkb/accessions?accessions={query_str}&fields=accession,lineage_ids&format=tsv&size=500"
         
     results = requests.get(url)
+    
+    time.sleep(0.3)
     
     return results
 
@@ -289,6 +293,16 @@ def read_genpept(handle, taxon_pattern):
         
     return ids_checked, fasta
 
+def worker(data):
+    
+    list_ids = data[0]
+    mail = data[1]
+    taxon_pattern = data[2]
+    handle = efecth_ncbi_genpept(list_ids, mail)
+    ids_selected, seq_selected = read_genpept(handle, taxon_pattern)
+    
+    return ids_selected, seq_selected
+    
 def write_data(fasta_file, fasta, out_file, out_lines, i):
     """Writes data
 
@@ -302,7 +316,7 @@ def write_data(fasta_file, fasta, out_file, out_lines, i):
     """
     
     if i == 0:
-        fasta_file.write_bytes(fasta)    
+        fasta_file.write_text(fasta)    
         out_file.write_text(out_lines)
             
     else:
@@ -354,6 +368,8 @@ if __name__ == "__main__":
     blastp_list_file = Path(args.data).glob("matches*.tsv")
     map_seq = {}
     blastp_map = {}
+    
+    start = datetime.datetime.now()
     
     for blastp_file in blastp_list_file:
         logging.info(blastp_file.name)
@@ -437,19 +453,35 @@ if __name__ == "__main__":
             ids_checked = []
             
             logging.info("taxonomy filtering and retrieve fasta for nr sequences")
-            start = datetime.datetime.now()
-            for i in range(0, len(map_seq[key]), 200):
-                logging.info(f"{i}/{n_seq_id}")
-                handle = efecth_ncbi_genpept(map_seq[key][i:i+200], mail)
+            
+            # build data structure
+            data = [[map_seq[key][i:i+200], mail, taxon_pattern]
+                    for i in range(0, len(map_seq[key]), 200)]
 
-                ids_selected, seq_selected = read_genpept(handle, taxon_pattern)
-                ids_checked.extend(ids_selected)
-                fasta += seq_selected
+            # use ThreadPoolExecturor with context manager
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                i = 0
+                logging.info(f"{i}/{n_seq_id}")
                 
-                blastp_filtered_lines += "".join([blastp_map[si]
-                                                for si in ids_checked])
-            logging.info(f"{n_seq_id}/{n_seq_id}")
-            logging.info(f"done - {datetime.datetime.now() - start}")
+                # submit tasks
+                # a task = fetch 200 (max) genpept at xml format from ncbi Entrez
+                # and parse the xml to filter by the taxonomy, the cds 
+                # availability and get the sequences
+                futures = [executor.submit(worker, elem) for elem in data]
+                
+                # iterates over results as soon they are completed
+                for future in as_completed(futures):
+                    ids_selected, seq_selected = future.result()
+                    ids_checked.extend(ids_selected)
+                    fasta += seq_selected
+                    i += 200
+                    if i <= n_seq_id:
+                        logging.info(f"{i}/{n_seq_id}")
+                    else:
+                        logging.info(f"{n_seq_id}/{n_seq_id}")
+                    
+            blastp_filtered_lines += "".join([blastp_map[si]
+                                              for si in ids_checked])
             
         elif key == "cloaca":
             # We keep only complete gene
@@ -530,3 +562,5 @@ if __name__ == "__main__":
                                               for si in ids_checked])
                 
         write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,i)
+        
+    logging.info(f"elapsed time: {datetime.datetime.now() - start}")
