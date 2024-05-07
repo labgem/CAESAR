@@ -303,7 +303,7 @@ def worker(data):
     
     return ids_selected, seq_selected
     
-def write_data(fasta_file, fasta, out_file, out_lines, i):
+def write_data(fasta_file, fasta, out_file, out_lines, sources_file, sources_text, i):
     """Writes data
 
     Args:
@@ -312,12 +312,15 @@ def write_data(fasta_file, fasta, out_file, out_lines, i):
         out_file (Path): file containing the output of blast for the selected 
         sequences
         out_lines (str): blast output lines of selected sequences
+        sources_file (Path): sources.txt file
+        sources_text (Path): text to writes in sources_file
         i (int): int
     """
     
     if i == 0:
         fasta_file.write_text(fasta)    
         out_file.write_text(out_lines)
+        sources_file.write_text(sources_text)
             
     else:
         with open(fasta_file, "a") as f:
@@ -325,6 +328,9 @@ def write_data(fasta_file, fasta, out_file, out_lines, i):
                 
         with open(out_file, "a") as f:
             f.write(out_lines)
+            
+        with open(sources_file, "a") as f:
+            f.write(sources_text)
 
 ##########
 ## MAIN ##
@@ -393,6 +399,9 @@ if __name__ == "__main__":
         blastp_filtered_file = outdir / "filtered_data.tsv"
         blastp_filtered_lines = ""
         
+        sources_file = outdir / "sources.txt"
+        sources_text = ""
+        
         if key == "uniprot":
             map_seq[key] = list(map_seq[key])
             n_seq_id = len(map_seq[key])
@@ -406,38 +415,42 @@ if __name__ == "__main__":
                 # Filters based on superkingdoms
                 logging.info("taxonomy filtering for uniprot sequences")
                 ids_checked = []
-                
+
                 # get lineage and filter it
-                for i in range(0, n_seq_id, 500):
-                    logging.info(f"{i}/{n_seq_id}")
-                    lineage = uniprotkb_accessions(map_seq[key][i:i+500], "lineage")
+                for j in range(0, n_seq_id, 500):
+                    logging.info(f"{j}/{n_seq_id}")
+                    lineage = uniprotkb_accessions(map_seq[key][j:j+500], "lineage")
+                    
                     ids_checked.extend(superkindgoms_filter(lineage.text,
                                                             taxon_pattern))
                 logging.info(f"{n_seq_id}/{n_seq_id}")
             
                 # get fasta for sequences that pass the filter
                 logging.info(f"retrieves fasta for uniprot sequences")
-                for i in range(0, len(ids_checked), 500):
-                    logging.info(f"{i}/{len(ids_checked)}")
-                    sequences = uniprotkb_accessions(ids_checked[i:i+500], "fasta")
+                for j in range(0, len(ids_checked), 500):
+                    logging.info(f"{j}/{len(ids_checked)}")
+                    sequences = uniprotkb_accessions(ids_checked[j:j+500], "fasta")
                     fasta += sequences.text
                 logging.info(f"{len(ids_checked)}/{len(ids_checked)}")
                 
-                # get the blastp lines for the checked sequences
-                blastp_filtered_lines += "".join([blastp_map[si]
-                                                  for si in ids_checked])
+                # get the blastp lines for the checked sequences and update the
+                # lines to write in sources.txt                
+                for ic in ids_checked:
+                    blastp_filtered_lines += blastp_map[ic] + "\n"
+                    sources_text += f"{ic} {key}\n"
                 
             else:
                 # Directly get the fasta for each sequence id
                 logging.info(f"retrieves fasta for uniprot sequences")
-                for i in range(0, n_seq_id, 500):
-                    logging.info(f"{i}/{n_seq_id}")
-                    sequences = uniprotkb_accessions(map_seq[key][i:i+500], "fasta")
+                for j in range(0, n_seq_id, 500):
+                    logging.info(f"{j}/{n_seq_id}")
+                    sequences = uniprotkb_accessions(map_seq[key][j:j+500], "fasta")
                     fasta += sequences.text
                 logging.info(f"{n_seq_id}/{n_seq_id}")
                 
-                blastp_filtered_lines += "".join([blastp_map[si]
-                                                  for si in map_seq[key]])
+                for ic in ids_checked:
+                    blastp_filtered_lines += blastp_map[ic] + "\n"
+                    sources_text += f"{ic} {key}\n"
         
         elif key == "nr":
             map_seq[key] = list(map_seq[key])
@@ -455,13 +468,13 @@ if __name__ == "__main__":
             logging.info("taxonomy filtering and retrieve fasta for nr sequences")
             
             # build data structure
-            data = [[map_seq[key][i:i+200], mail, taxon_pattern]
-                    for i in range(0, len(map_seq[key]), 200)]
+            data = [[map_seq[key][j:j+200], mail, taxon_pattern]
+                    for j in range(0, len(map_seq[key]), 200)]
 
             # use ThreadPoolExecturor with context manager
             with ThreadPoolExecutor(max_workers=3) as executor:
-                i = 0
-                logging.info(f"{i}/{n_seq_id}")
+                j = 0
+                logging.info(f"{j}/{n_seq_id}")
                 
                 # submit tasks
                 # a task = fetch 200 (max) genpept at xml format from ncbi Entrez
@@ -474,14 +487,15 @@ if __name__ == "__main__":
                     ids_selected, seq_selected = future.result()
                     ids_checked.extend(ids_selected)
                     fasta += seq_selected
-                    i += 200
-                    if i <= n_seq_id:
-                        logging.info(f"{i}/{n_seq_id}")
+                    j += 200
+                    if j <= n_seq_id:
+                        logging.info(f"{j}/{n_seq_id}")
                     else:
                         logging.info(f"{n_seq_id}/{n_seq_id}")
                     
-            blastp_filtered_lines += "".join([blastp_map[si]
-                                              for si in ids_checked])
+            for ic in ids_checked:
+                blastp_filtered_lines += blastp_map[ic] + "\n"
+                sources_text += f"{ic} {key}\n"
             
         elif key == "cloaca":
             # We keep only complete gene
@@ -502,6 +516,8 @@ if __name__ == "__main__":
             # Runs seqkit to obtain nucleic sequences
             logging.info("search cloaca nucleic sequence with seqkit")
             result = run_seqkit(cloaca_prefilter_file, db_path[key]["fna"])
+            
+            cloaca_prefilter_file.unlink()
             
             ids_checked = []
             
@@ -530,8 +546,11 @@ if __name__ == "__main__":
                 fasta = result.stdout.decode("utf-8")
                 logging.info("done")
             
-            blastp_filtered_lines += "".join([blastp_map[si]
-                                              for si in ids_checked])
+            for ic in ids_checked:
+                blastp_filtered_lines += blastp_map[ic] + "\n"
+                sources_text += f"{ic} {key}\n"
+                
+            cloaca_filtered_file.unlink()
             
         elif key == "tara":
             if args.tax != "E":
@@ -543,6 +562,8 @@ if __name__ == "__main__":
                 # Runs seqkit to obtain the protein sequences
                 logging.info("retrieves TARA protein sequences")
                 result = run_seqkit(tara_prefilter_file, db_path[key]["faa"])
+                
+                tara_prefilter_file.unlink()
                 
                 seq_id = ""
                 ids_checked = []
@@ -558,9 +579,11 @@ if __name__ == "__main__":
                     
                     ids_checked.extend(ids_selected)
                 
-                blastp_filtered_lines += "".join([blastp_map[si]
-                                              for si in ids_checked])
-                
-        write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,i)
+                for ic in ids_checked:
+                    blastp_filtered_lines += blastp_map[ic] + "\n"
+                    sources_text += f"{ic} {key}\n"
+        
+        write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,
+                   sources_file, sources_text, i)
         
     logging.info(f"elapsed time: {datetime.datetime.now() - start}")
