@@ -436,7 +436,7 @@ if __name__ == "__main__":
                 # get the blastp lines for the checked sequences and update the
                 # lines to write in sources.txt                
                 for ic in ids_checked:
-                    blastp_filtered_lines += blastp_map[ic] + "\n"
+                    blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
                 
             else:
@@ -449,7 +449,7 @@ if __name__ == "__main__":
                 logging.info(f"{n_seq_id}/{n_seq_id}")
                 
                 for ic in ids_checked:
-                    blastp_filtered_lines += blastp_map[ic] + "\n"
+                    blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
         
         elif key == "nr":
@@ -494,7 +494,7 @@ if __name__ == "__main__":
                         logging.info(f"{n_seq_id}/{n_seq_id}")
                     
             for ic in ids_checked:
-                blastp_filtered_lines += blastp_map[ic] + "\n"
+                blastp_filtered_lines += blastp_map[ic]
                 sources_text += f"{ic} {key}\n"
             
         elif key == "cloaca":
@@ -547,7 +547,7 @@ if __name__ == "__main__":
                 logging.info("done")
             
             for ic in ids_checked:
-                blastp_filtered_lines += blastp_map[ic] + "\n"
+                blastp_filtered_lines += blastp_map[ic]
                 sources_text += f"{ic} {key}\n"
                 
             cloaca_filtered_file.unlink()
@@ -580,7 +580,7 @@ if __name__ == "__main__":
                     ids_checked.extend(ids_selected)
                 
                 for ic in ids_checked:
-                    blastp_filtered_lines += blastp_map[ic] + "\n"
+                    blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
         
         write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,
