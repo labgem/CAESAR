@@ -285,7 +285,7 @@ def read_genpept(handle, taxon_pattern):
             single_fasta = f">{seq_id} {elem['GBSeq_definition']}"
             single_fasta = single_fasta.replace("[", "OS=")
             single_fasta = single_fasta.replace("]", "")
-            single_fasta += f" {tax_id}\n"
+            single_fasta += f" OX={tax_id}\n"
             single_fasta += textwrap.fill(elem['GBSeq_sequence'].upper(), 60)
             
             ids_checked.append(seq_id)
