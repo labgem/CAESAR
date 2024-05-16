@@ -4,7 +4,9 @@
 
 import argparse
 import logging
+import re
 import yaml
+from pathlib import Path
 
 ##############
 ## Function ##
@@ -26,6 +28,34 @@ def read_yaml_config(config_path):
                 db_path[db_name].update(db_format)
     
     return db_path, yml
+
+def read_clusters(cluster_file):
+    
+    clusters = {}
+    
+    with open(cluster_file, "r") as f:
+        for line in f:
+            split_line = line.split()
+            
+            # If the cluster name it's in the uniprot header format
+            if "sp|" in split_line[0] or "tr|" in split_line[0]:
+                ref = re.search("\\|(\\w+)\\|", split_line[0]).group(1)
+                if clusters.get(ref) is None:
+                    clusters[ref] = []
+            
+            else:
+                ref = split_line[0]
+                if clusters.get(ref) is None:
+                    clusters[ref] = []
+            
+            # If the member name it's in the uniprot header format      
+            if "sp|" in split_line[1] or "tr|" in split_line[1]:
+                member = re.search("\\|(\\w+)\\|", split_line[1]).group(1)
+                clusters[ref].append(member)
+            else:
+                clusters[ref].append(split_line[1])
+    
+    return clusters
 
 ##########
 ## MAIN ##
@@ -50,3 +80,9 @@ if __name__ == "__main__":
                         "sequences")
     
     args = parser.parse_args()
+    
+    config_path = Path(args.config)
+    db_path, yml = read_yaml_config(config_path)
+    
+    cluster_file = Path(args.clusters)
+    clusters = read_clusters(cluster_file)
