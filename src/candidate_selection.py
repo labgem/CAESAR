@@ -72,6 +72,28 @@ def read_sources_file(sources_file):
                 
     return sources
 
+def read_strain_library(strain_library_path):
+    
+    strain_library = {"name":[], "tax_id":[], "ressource":[]}
+    mda = False
+    with open(strain_library_path, "r") as fin:
+        for i, line in enumerate(fin):
+            if i == 0:
+                if "MDA" in line.strip().split("\t"):
+                    mda = line.strip().split("\t").index("MDA")
+                    strain_library["mda"] = []
+                continue
+            else:
+                split_line = line.split("\t")
+                strain_library["name"].append(split_line[0].strip())
+                strain_library["tax_id"].append(split_line[1].strip())
+                strain_library["ressource"].append(f"{split_line[2].strip()},"
+                                                   f"{split_line[3].strip()}")
+                if mda != False:
+                    strain_library["mda"].append(split_line[mda].strip())
+                    
+    return strain_library
+
 ##########
 ## MAIN ##
 ##########
@@ -104,3 +126,6 @@ if __name__ == "__main__":
     
     sources_file = Path(args.sources)
     sources = read_sources_file(sources_file)
+    
+    strain_library_file = yml["strain_library"]
+    strain_library = read_strain_library(strain_library_file)
