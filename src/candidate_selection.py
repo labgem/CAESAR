@@ -57,6 +57,21 @@ def read_clusters(cluster_file):
     
     return clusters
 
+def read_sources_file(sources_file):
+    
+    sources = {}
+    
+    with open(sources_file, "r") as f:
+        for line in f:
+            split_line = line.split()
+            if "sp|" in split_line[0] or "tr|" in split_line[0]:
+                seq_id = re.search("\\|(\\w+)\\|", split_line[0]).group(1)
+                sources[seq_id] = split_line[1]
+            else:
+                sources[split_line[0]] = split_line[1]
+                
+    return sources
+
 ##########
 ## MAIN ##
 ##########
@@ -76,7 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("--clusters", type=str, metavar="", required=True,
                         help="clusters tsv file")
     parser.add_argument("--sources", type=str, metavar="", required=True,
-                        help="sources file indicating the source database of each"
+                        help="sources file indicating the sources database of each"
                         "sequences")
     
     args = parser.parse_args()
@@ -86,3 +101,6 @@ if __name__ == "__main__":
     
     cluster_file = Path(args.clusters)
     clusters = read_clusters(cluster_file)
+    
+    sources_file = Path(args.sources)
+    sources = read_sources_file(sources_file)
