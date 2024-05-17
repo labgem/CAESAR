@@ -8,6 +8,52 @@ import re
 import yaml
 from pathlib import Path
 
+###########
+## Class ##
+###########
+
+class Candidate():
+    
+    def __init__(self, name):
+        self.name = name
+        self.protein_fasta = ""
+        self.nucleic_fasta = ""
+        self.os = None
+        self.ox = None
+        self.embl_id = None
+        self.gc = 0.0
+        self.gc_diff = 100.0
+        self.source = None
+        self.query = None
+        
+    def __str__(self):
+        return f"{self.name} {self.os} {self.ox} {self.source}"
+
+    def set_organism_name(self, os):
+        self.os = os
+        
+    def set_organism_identifier(self, ox):
+        self.ox = ox
+        
+    def set_embl_id(self, embl_id):
+        self.embl_id = embl_id
+        
+    def set_query_info(self, query_info):
+        self.query = query_info
+        
+    def set_source(self, source):
+        self.source = source
+        
+    def set_gc(self, gc, gc_goal):
+        self.gc = gc
+        self.gc_diff = abs(gc_goal - gc)
+        
+    def update_protein_fasta(self, s):
+        self.protein_fasta += s
+        
+    def update_nucleic_sequence(self, s):
+        self.nucleic_fasta += s
+
 ##############
 ## Function ##
 ##############
@@ -94,6 +140,40 @@ def read_strain_library(strain_library_path):
                     
     return strain_library
 
+def read_fasta_candidiates(fasta_file):
+
+    all_seq = {}
+    
+    with open(fasta_file, "r") as f:
+        seq_id = ""
+        for line in f:
+            if line.startswith(">"):
+                if "sp|" in line or "tr|" in line:
+                    seq_id = re.search("\\|(\\w+)\\|", line).group(1)
+                # If other header
+                else:
+                    seq_id = line[1:].split()[0]
+                    
+                all_seq[seq_id] = Candidate(seq_id)
+                all_seq[seq_id].update_protein_fasta(line)
+                
+                try:
+                    os = re.search("OS=(.+?)(.OX|$)", line).group(1)
+                    all_seq[seq_id].set_organism_name(os)
+                except AttributeError:
+                    continue
+                
+                try:
+                    ox = re.search("OX=(\\d+)", line).group(1)
+                    all_seq[seq_id].set_organism_identifier(ox)
+                except AttributeError:
+                    continue
+                
+            else:
+                all_seq[seq_id].update_protein_fasta(line)
+                
+    return all_seq
+        
 ##########
 ## MAIN ##
 ##########
@@ -129,3 +209,6 @@ if __name__ == "__main__":
     
     strain_library_file = yml["strain_library"]
     strain_library = read_strain_library(strain_library_file)
+    
+    fasta_file = Path(args.fasta)
+    all_seq = read_fasta_candidiates(fasta_file)
