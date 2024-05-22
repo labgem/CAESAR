@@ -5,6 +5,8 @@
 import argparse
 import logging
 import re
+import requests
+import time
 import yaml
 from pathlib import Path
 
@@ -20,7 +22,7 @@ class Candidate():
         self.nucleic_fasta = ""
         self.os = None
         self.ox = None
-        self.embl_id = None
+        self.cds_id = None
         self.gc = 0.0
         self.gc_diff = 100.0
         self.source = None
@@ -35,8 +37,8 @@ class Candidate():
     def set_organism_identifier(self, ox):
         self.ox = ox
         
-    def set_embl_id(self, embl_id):
-        self.embl_id = embl_id
+    def set_cds(self, cds_id):
+        self.cds_id = cds_id
         
     def set_query_info(self, query_info):
         self.query = query_info
@@ -177,9 +179,10 @@ def read_fasta_candidiates(fasta_file):
 def preselect_candidates(all_seq, clusters, sources, strain_library):
     
     presel = {}
+    not_finded = set()
+    finded = {elem:set() for elem in set(sources.values())}
     
-    alt_db = set(sources[elem] for elem in sources if
-                 sources[elem] not in ["uniprot", "nr"])
+    alt_db = set(elem for elem in finded if elem not in ["uniprot", "nr"])
     
     for clust in clusters:
         # 1st : tax id
@@ -188,7 +191,6 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
         # 4th : organism name (same specie)
         # 5th : alt db
         
-        n_cand += len(clusters[clust])
         clust_cand = {"tax_id":[], "home_strain":[], "species":[], "order":[]}
         for db in alt_db:
             clust_cand[db] = []
@@ -292,12 +294,77 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                         find = True
                     
                 if find is True:
+                    finded[sources[cand]].add(cand)
                     break
+                else:
+                    not_finded.add(cand)
             
         presel.update(clust_cand)
       
-    return presel
+    return presel, finded, not_finded
+
+def uniprot_id_mapping(query):
+    
+    if len(query) > 100_000:
+        raise ValueError(f"number of ids must be less than 100 000")
+    
+    POOLING_INTERVAL = 5
+    API_URL = "https://rest.uniprot.org/idmapping/"
+    
+    query_str = ",".join(query)
+    
+    rpost = requests.post(f"{API_URL}run",
+                          data={"from":"UniProtKB_AC-ID",
+                                "to":"EMBL-GenBank-DDBJ_CDS",
+                                "ids":query_str})
+    
+    job_id = False
+    
+    # Get job Id
+    while isinstance(job_id, bool):
+        try:
+            job_id = rpost.json()["jobId"]
+        except KeyError:
+            time.sleep(POOLING_INTERVAL)
+        
+    result = False
+    
+    # Infinite loop
+    while True:
+        job = requests.get(f"{API_URL}status/{job_id}").json()
+        
+        # if jobStatus is present, this means that the job has not been completed
+        if "jobStatus" in job:
+            if job["jobStatus"] == "RUNNING" or job["jobStatus"] == "NEW":
+                logging.info(f"Checks job status...")
+                time.sleep(POOLING_INTERVAL)
+                
+            else:
+                logging.error(f"ID MAPPING TOOL ERROR:\n\t{job['jobStatus']}")
+                raise RuntimeError
+            
+        else:
+            url = f"{API_URL}stream/{job_id}?format=tsv"
+            result = requests.get(url)
+            break
+    
+    if isinstance(result, bool):
+        raise TypeError(f"Job completed but no results found")
+    
+    return result
                     
+                    
+def read_id_mapping_tool_result(result):
+    
+    cds_map = {}
+    
+    mapping = result.text.split("\n")[1:-1]
+    for line in mapping:
+        split_line = line.split()
+        cds_map[split_line[1]] = split_line[0]
+        
+    return cds_map
+
 ##########
 ## MAIN ##
 ##########
@@ -337,4 +404,33 @@ if __name__ == "__main__":
     fasta_file = Path(args.fasta)
     all_seq = read_fasta_candidiates(fasta_file)
     
-    preselect_candidates(all_seq, clusters, sources, strain_library)
+    presel, finded, not_finded = preselect_candidates(all_seq, clusters,
+                                                      sources, strain_library)
+
+    for cand in not_finded:
+        del all_seq[cand]
+    
+    del not_finded
+      
+    if "nr" not in finded:
+        finded["nr"] = set()
+        
+    uniprot_cds_map = {}
+        
+    if "uniprot" in finded:
+        if len(finded["uniprot"]) > 100_000:
+            finded["uniprot"] = list(finded["uniprot"])
+            for i in range(len(finded["uniprot"]), 100_000):
+                query = finded["uniprot"][i:i+100_000]
+                result = uniprot_id_mapping(query)
+                cds_map = read_id_mapping_tool_result(result)
+                uniprot_cds_map.update(cds_map)
+                finded["nr"].update(set(cds_map.keys()))
+                
+        else:
+            result = uniprot_id_mapping(finded["uniprot"])
+            cds_map = read_id_mapping_tool_result(result)
+            uniprot_cds_map.update(cds_map)
+            finded["nr"].update(set(cds_map.keys()))
+    
+    
