@@ -120,7 +120,7 @@ def read_sources_file(sources_file):
 
 def read_strain_library(strain_library_path):
     
-    strain_library = {"name":[], "tax_id":[], "ressource":[]}
+    strain_library = {"name":[], "tax_id":[], "resource":[]}
     mda = False
     with open(strain_library_path, "r") as fin:
         for i, line in enumerate(fin):
@@ -133,7 +133,7 @@ def read_strain_library(strain_library_path):
                 split_line = line.split("\t")
                 strain_library["name"].append(split_line[0].strip())
                 strain_library["tax_id"].append(split_line[1].strip())
-                strain_library["ressource"].append(f"{split_line[2].strip()},"
+                strain_library["resource"].append(f"{split_line[2].strip()},"
                                                    f"{split_line[3].strip()}")
                 if mda != False:
                     strain_library["mda"].append(split_line[mda].strip())
@@ -173,7 +173,131 @@ def read_fasta_candidiates(fasta_file):
                 all_seq[seq_id].update_protein_fasta(line)
                 
     return all_seq
+
+def preselect_candidates(all_seq, clusters, sources, strain_library):
+    
+    presel = {}
+    
+    alt_db = set(sources[elem] for elem in sources if
+                 sources[elem] not in ["uniprot", "nr"])
+    
+    for clust in clusters:
+        # 1st : tax id
+        # 2nd : organism name (excact match, include strain etc)
+        # 3rd : DSM or ATCC id in strain_library
+        # 4th : organism name (same specie)
+        # 5th : alt db
         
+        n_cand += len(clusters[clust])
+        clust_cand = {"tax_id":[], "home_strain":[], "species":[], "order":[]}
+        for db in alt_db:
+            clust_cand[db] = []
+            
+        for cand in clusters[clust]:
+
+            os = all_seq[cand].os
+            ox =  all_seq[cand].ox
+
+            atcc_id = None
+            dsm_id = None
+            
+            try:
+                atcc_id = "ATCC," + re.search("ATCC(.+?)([^\\s]+)", os).group(2)
+            except AttributeError:
+                pass
+            except TypeError:
+                pass
+            
+            try:
+                dsm_id = "DSMZ," + re.search("DSM(.+?)([^\\s]+)", os).group(2)
+            except AttributeError:
+                pass
+            except TypeError:
+                pass
+            
+            p = "unclassified|bacterium|archaeon|fragment|uncultured|_"
+            
+            find = False
+            for key in ["tax_id", "resource", "name"]:
+                
+                if key == "tax_id":
+                    for i in range(len(strain_library[key])):
+                        if ox == strain_library[key][i]:
+                            clust_cand["tax_id"].append((cand,
+                                                         strain_library["name"][i],
+                                                         strain_library["tax_id"][i],
+                                                         strain_library["resource"][i]))
+
+                            find = True
+                            break
+                
+                elif key == "resource":
+                    for i in range(len(strain_library[key])):
+                        if dsm_id == strain_library[key][i]:
+                            clust_cand["home_strain"].append((cand,
+                                                              strain_library["name"][i],
+                                                              strain_library["tax_id"][i],
+                                                              strain_library["resource"][i]))
+                            find = True
+                            break
+                        
+                        elif atcc_id == strain_library[key][i]:
+                            clust_cand["home_strain"].append((cand,
+                                                              strain_library["name"][i],
+                                                              strain_library["tax_id"][i],
+                                                              strain_library["resource"][i]))
+                            find = True
+                            break
+            
+                elif key == "name":
+                    if os is not None and re.search(p, os):
+                        break
+                    
+                    elif os is not None:
+                        os_split = os.split()
+                        genus = os_split[0]
+                        specie = os_split[1]
+
+                        name = f"{genus}\\s{specie}"
+                        for i in range(len(strain_library[key])):
+
+                            if os == strain_library[key][i]:
+                                clust_cand["species"].append((cand,
+                                                            strain_library["name"][i],
+                                                            strain_library["tax_id"][i],
+                                                            strain_library["resource"][i]))
+                                find = True
+                                break
+                            
+                            elif re.search(name, strain_library[key][i]):
+                                clust_cand["species"].append((cand,
+                                                                strain_library["name"][i],
+                                                                strain_library["tax_id"][i],
+                                                                strain_library["resource"][i]))
+                                find = True
+                                break
+                                    
+                        if find is False:
+                            if dsm_id is not None:
+                                clust_cand["order"].append((cand,os,ox,dsm_id))
+                                find = True
+                            
+                            elif atcc_id is not None:
+                                clust_cand["order"].append((cand,os,ox,atcc_id))
+                                        
+                                find = True
+                    
+                    elif len(alt_db) != 0:
+                        clust_cand[sources[cand]].append((cand,None,None,None))
+                        find = True
+                    
+                if find is True:
+                    break
+            
+        presel.update(clust_cand)
+      
+    return presel
+                    
 ##########
 ## MAIN ##
 ##########
@@ -212,3 +336,5 @@ if __name__ == "__main__":
     
     fasta_file = Path(args.fasta)
     all_seq = read_fasta_candidiates(fasta_file)
+    
+    preselect_candidates(all_seq, clusters, sources, strain_library)
