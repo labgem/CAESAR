@@ -3,12 +3,14 @@
 #############
 
 import argparse
+import itertools
 import logging
 import re
 import requests
 import time
 import yaml
 from Bio import Entrez
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ###########
@@ -38,7 +40,7 @@ class Candidate():
     def set_organism_identifier(self, ox):
         self.ox = ox
         
-    def set_cds(self, cds_id):
+    def set_cds_id(self, cds_id):
         self.cds_id = cds_id
         
     def set_query_info(self, query_info):
@@ -396,11 +398,23 @@ def read_cds_na(handle, all_seq, uniprot_cds_map):
             protein_header = all_seq[uniprot_id].protein_fasta.split("\n")[0]
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
             all_seq[uniprot_id].update_nucleic_sequence(nucleic_fasta)
+            all_seq[uniprot_id].set_cds_id(protein_id)
         else:
             protein_header = all_seq[protein_id].protein_fasta.split("\n")[0]
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
             all_seq[protein_id].update_nucleic_sequence(nucleic_fasta)
             
+    return all_seq
+
+def worker(data):
+    query = data[0]
+    mail = data[1]
+    uniprot_cds_map = data[2]
+    all_seq = data[3]
+    
+    handle = efecth_fasta_cds_na(query, mail)
+    all_seq = read_cds_na(handle, all_seq, uniprot_cds_map)
+    
     return all_seq
 
 ##########
@@ -477,14 +491,45 @@ if __name__ == "__main__":
 
     n_seq_id = len(finded["nr"])
     
-    logging.info("NCBI efecth fasta_cds_na")
-    logging.info(f"0/{n_seq_id}")
-    for i in range(0, len(finded["nr"]), 200):
+    all_cand = {}
+    
+    data = []
+    for i in range(0, n_seq_id, 200):
         query = finded["nr"][i:i+200]
-        handle = efecth_fasta_cds_na(query, yml["mail"])
-        all_seq = read_cds_na(handle, all_seq, uniprot_cds_map)
-        if i+200 <= n_seq_id:
-            logging.info(f"{i+200}/{n_seq_id}")
-        else:
-            logging.info(f"{n_seq_id}/{n_seq_id}")
+        query_cand = {k:all_seq[k] for k in all_seq if k in query}
+        query_map_cds = {}
+        
+        for k, v in uniprot_cds_map.items():
+            if k in query:
+                query_cand[v] = all_seq[v]
+                query_map_cds[k] = v
+
+        data.append((query, yml["mail"], query_map_cds, query_cand))
+    
+    del all_seq, uniprot_cds_map
+    
+    logging.info(f"NCBI efetch fasta_cds_na")
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        i = 0
+        logging.info(f"{i}/{n_seq_id}")
+        
+        
+        # submit tasks
+        # a task = fetch 200 fasta_cds_na and parse them to modify the header
+        # and add the fasta in the corresponding candidate object
+        futures = [executor.submit(worker, elem) for elem in data]
+        
+        # iterates over results as soon they are completed
+        for future in as_completed(futures):
+            updated_candidate = future.result()
+            all_cand.update(updated_candidate)
+            i += 200
+            if i <= n_seq_id:
+                logging.info(f"{i}/{n_seq_id}")
+            else:
+                logging.info(f"{n_seq_id}/{n_seq_id}")
+    
+    logging.info("done")
+    del data
+    
     
