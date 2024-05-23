@@ -8,6 +8,7 @@ import re
 import requests
 import time
 import yaml
+from Bio import Entrez
 from pathlib import Path
 
 ###########
@@ -296,8 +297,9 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                 if find is True:
                     finded[sources[cand]].add(cand)
                     break
-                else:
-                    not_finded.add(cand)
+            
+            if find is False:
+                not_finded.add(cand)
             
         presel.update(clust_cand)
       
@@ -365,6 +367,42 @@ def read_id_mapping_tool_result(result):
         
     return cds_map
 
+def efecth_fasta_cds_na(query, mail):
+    
+    Entrez.email = mail
+    
+    if len(query) > 200:
+        raise ValueError("number of ids must be less or equal than 200")
+    
+    query_str = ",".join(query)
+    
+    handle = Entrez.efetch(db="protein", rettype="fasta_cds_na", retmode="text",
+                           id=query_str)
+    
+    return handle
+
+def read_cds_na(handle, all_seq, uniprot_cds_map):
+    
+    for fasta in handle.read().split(">")[1:]:
+        protein_id = ""
+        try:
+            protein_id = re.search("protein_id=(.+?)\\]", fasta).group(1)
+        except:
+            continue
+
+        if protein_id in uniprot_cds_map:
+            #print(protein_id, uniprot_cds_map[protein_id])
+            uniprot_id = uniprot_cds_map[protein_id]
+            protein_header = all_seq[uniprot_id].protein_fasta.split("\n")[0]
+            nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
+            all_seq[uniprot_id].update_nucleic_sequence(nucleic_fasta)
+        else:
+            protein_header = all_seq[protein_id].protein_fasta.split("\n")[0]
+            nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
+            all_seq[protein_id].update_nucleic_sequence(nucleic_fasta)
+            
+    return all_seq
+
 ##########
 ## MAIN ##
 ##########
@@ -418,6 +456,7 @@ if __name__ == "__main__":
     uniprot_cds_map = {}
         
     if "uniprot" in finded:
+        logging.info("Uniprot ID Mapping Tool")
         if len(finded["uniprot"]) > 100_000:
             finded["uniprot"] = list(finded["uniprot"])
             for i in range(len(finded["uniprot"]), 100_000):
@@ -433,4 +472,19 @@ if __name__ == "__main__":
             uniprot_cds_map.update(cds_map)
             finded["nr"].update(set(cds_map.keys()))
     
+    logging.info("done")
+    finded["nr"] = list(finded["nr"])
+
+    n_seq_id = len(finded["nr"])
+    
+    logging.info("NCBI efecth fasta_cds_na")
+    logging.info(f"0/{n_seq_id}")
+    for i in range(0, len(finded["nr"]), 200):
+        query = finded["nr"][i:i+200]
+        handle = efecth_fasta_cds_na(query, yml["mail"])
+        all_seq = read_cds_na(handle, all_seq, uniprot_cds_map)
+        if i+200 <= n_seq_id:
+            logging.info(f"{i+200}/{n_seq_id}")
+        else:
+            logging.info(f"{n_seq_id}/{n_seq_id}")
     
