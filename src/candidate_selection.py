@@ -12,6 +12,7 @@ import yaml
 from Bio import Entrez
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from filter import run_seqkit
 
 ###########
 ## Class ##
@@ -56,7 +57,7 @@ class Candidate():
     def update_protein_fasta(self, s):
         self.protein_fasta += s
         
-    def update_nucleic_sequence(self, s):
+    def update_nucleic_fasta(self, s):
         self.nucleic_fasta += s
 
 ##############
@@ -397,12 +398,12 @@ def read_cds_na(handle, all_seq, uniprot_cds_map):
             uniprot_id = uniprot_cds_map[protein_id]
             protein_header = all_seq[uniprot_id].protein_fasta.split("\n")[0]
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
-            all_seq[uniprot_id].update_nucleic_sequence(nucleic_fasta)
+            all_seq[uniprot_id].update_nucleic_fasta(nucleic_fasta)
             all_seq[uniprot_id].set_cds_id(protein_id)
         else:
             protein_header = all_seq[protein_id].protein_fasta.split("\n")[0]
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
-            all_seq[protein_id].update_nucleic_sequence(nucleic_fasta)
+            all_seq[protein_id].update_nucleic_fasta(nucleic_fasta)
             
     return all_seq
 
@@ -441,6 +442,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    outdir = Path(args.outdir)
+    
     config_path = Path(args.config)
     db_path, yml = read_yaml_config(config_path)
     
@@ -463,12 +466,13 @@ if __name__ == "__main__":
         del all_seq[cand]
     
     del not_finded
-      
+    
     if "nr" not in finded:
         finded["nr"] = set()
         
     uniprot_cds_map = {}
-        
+    
+    # Uniprot ID Mapping Tool
     if "uniprot" in finded:
         logging.info("Uniprot ID Mapping Tool")
         if len(finded["uniprot"]) > 100_000:
@@ -487,49 +491,68 @@ if __name__ == "__main__":
             finded["nr"].update(set(cds_map.keys()))
     
     logging.info("done")
-    finded["nr"] = list(finded["nr"])
+    
+    # NCBI Entrez to retrieves nucleic sequences
+    if "nr" in finded:
+        
+        finded["nr"] = list(finded["nr"])
+        n_seq_id = len(finded["nr"])
+        
+        data = []
+        for i in range(0, n_seq_id, 200):
+            query = finded["nr"][i:i+200]
+            query_cand = {k:all_seq[k] for k in all_seq if k in query}
+            query_map_cds = {}
+            
+            for k, v in uniprot_cds_map.items():
+                if k in query:
+                    query_cand[v] = all_seq[v]
+                    query_map_cds[k] = v
 
-    n_seq_id = len(finded["nr"])
-    
-    all_cand = {}
-    
-    data = []
-    for i in range(0, n_seq_id, 200):
-        query = finded["nr"][i:i+200]
-        query_cand = {k:all_seq[k] for k in all_seq if k in query}
-        query_map_cds = {}
+            data.append((query, yml["mail"], query_map_cds, query_cand))
         
-        for k, v in uniprot_cds_map.items():
-            if k in query:
-                query_cand[v] = all_seq[v]
-                query_map_cds[k] = v
-
-        data.append((query, yml["mail"], query_map_cds, query_cand))
-    
-    del all_seq, uniprot_cds_map
-    
-    logging.info(f"NCBI efetch fasta_cds_na")
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        i = 0
-        logging.info(f"{i}/{n_seq_id}")
+        logging.info(f"NCBI efetch fasta_cds_na")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            i = 0
+            logging.info(f"{i}/{n_seq_id}")
+            
+            
+            # submit tasks
+            # a task = fetch 200 fasta_cds_na and parse them to modify the header
+            # and add the fasta in the corresponding candidate object
+            futures = [executor.submit(worker, elem) for elem in data]
+            
+            # iterates over results as soon they are completed
+            for future in as_completed(futures):
+                updated_candidate = future.result()
+                all_seq.update(updated_candidate)
+                i += 200
+                if i <= n_seq_id:
+                    logging.info(f"{i}/{n_seq_id}")
+                else:
+                    logging.info(f"{n_seq_id}/{n_seq_id}")
         
+        logging.info("done")
+        del data
+    
+    for key in finded:
+        if key in ["uniprot", "nr"]:
+            continue
         
-        # submit tasks
-        # a task = fetch 200 fasta_cds_na and parse them to modify the header
-        # and add the fasta in the corresponding candidate object
-        futures = [executor.submit(worker, elem) for elem in data]
+        elif "fna" not in db_path[key]:
+            continue
         
-        # iterates over results as soon they are completed
-        for future in as_completed(futures):
-            updated_candidate = future.result()
-            all_cand.update(updated_candidate)
-            i += 200
-            if i <= n_seq_id:
-                logging.info(f"{i}/{n_seq_id}")
-            else:
-                logging.info(f"{n_seq_id}/{n_seq_id}")
-    
-    logging.info("done")
-    del data
-    
-    
+        key_file_id = outdir / f"{key}_ids.txt"
+        key_file_id.write_text("\n".join(finded[key]))
+        
+        result = run_seqkit(key_file_id, db_path[key]["fna"])
+        
+        if result.returncode != 0:
+            logging.info("An error has occured during seqkit process to obtain",
+                         f" nucleic sequences for {key}:",
+                         f" {result.returncode}\n{result.stderr.decode('utf-8')}")
+        else:
+            for fasta in result.stdout.decode('utf-8').split(">")[1:]:
+                seq_id = fasta.split()[0]
+                all_seq[seq_id].update_nucleic_fasta(fasta)
+                key_file_id.unlink()
