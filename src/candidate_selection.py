@@ -3,13 +3,13 @@
 #############
 
 import argparse
-import itertools
 import logging
 import re
 import requests
 import time
 import yaml
 from Bio import Entrez
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from filter import run_seqkit
@@ -304,8 +304,8 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
             if find is False:
                 not_finded.add(cand)
             
-        presel.update(clust_cand)
-      
+        presel[cand] = clust_cand
+    
     return presel, finded, not_finded
 
 def uniprot_id_mapping(query):
@@ -386,25 +386,35 @@ def efecth_fasta_cds_na(query, mail):
 
 def read_cds_na(handle, all_seq, uniprot_cds_map):
     
+    
     for fasta in handle.read().split(">")[1:]:
-        protein_id = ""
         try:
-            protein_id = re.search("protein_id=(.+?)\\]", fasta).group(1)
+            protein_id = re.search("cds_([^\\s_]+)", fasta).group(1)
         except:
             continue
-
+        
         if protein_id in uniprot_cds_map:
-            #print(protein_id, uniprot_cds_map[protein_id])
             uniprot_id = uniprot_cds_map[protein_id]
             protein_header = all_seq[uniprot_id].protein_fasta.split("\n")[0]
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
             all_seq[uniprot_id].update_nucleic_fasta(nucleic_fasta)
             all_seq[uniprot_id].set_cds_id(protein_id)
+            try:
+                gc = compute_gc(nucleic_fasta)
+                all_seq[uniprot_id].set_gc(gc, 50.0)
+            except ZeroDivisionError:
+                continue
         else:
             protein_header = all_seq[protein_id].protein_fasta.split("\n")[0]
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
             all_seq[protein_id].update_nucleic_fasta(nucleic_fasta)
-            
+            all_seq[protein_id].set_cds_id(protein_id)
+            try:
+                gc = compute_gc(nucleic_fasta)
+                all_seq[protein_id].set_gc(gc, 50.0)
+            except ZeroDivisionError:
+                continue
+        
     return all_seq
 
 def worker(data):
@@ -418,6 +428,19 @@ def worker(data):
     
     return all_seq
 
+
+def compute_gc(fasta):
+    
+    seq = "".join(fasta.split("\n")[1:])
+    
+    count = Counter(seq)
+    
+    
+    gc = ((count["G"] + count["C"]) /
+          (count["A"] + count["T"] + count["G"] + count["C"])) * 100
+        
+    return gc
+ 
 ##########
 ## MAIN ##
 ##########
@@ -555,4 +578,7 @@ if __name__ == "__main__":
             for fasta in result.stdout.decode('utf-8').split(">")[1:]:
                 seq_id = fasta.split()[0]
                 all_seq[seq_id].update_nucleic_fasta(fasta)
+                gc = compute_gc(fasta)
+                all_seq[seq_id].set_gc(gc, 50.0)
                 key_file_id.unlink()
+    
