@@ -304,7 +304,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
             if find is False:
                 not_finded.add(cand)
             
-        presel[cand] = clust_cand
+        presel[clust] = clust_cand
     
     return presel, finded, not_finded
 
@@ -440,7 +440,55 @@ def compute_gc(fasta):
           (count["A"] + count["T"] + count["G"] + count["C"])) * 100
         
     return gc
- 
+
+def select_candidate(presel, all_cand, yml, sources_db, n=1):
+    
+    selected_cand_per_clust = {}
+    
+    category_rank = []
+    
+    if "candidate_selection" in yml:
+        for category in yml["candidate_selection"]:
+            
+            if category.lower() == "strain_library":
+                category_rank.extend(["tax_id", "home_strain", "species"])
+            
+            elif category.lower() == "order":
+                category_rank.append("order")
+                
+            else:
+                if category.lower() in sources_db:
+                    category_rank.append(category.lower())
+    
+    else:
+        category_rank.extend(["tax_id", "home_strain", "species", "order"])
+        category_rank.extend([cat.lower() for cat in category_rank if cat
+                              not in ["uniprot", "nr"]])
+    
+    for clust_name, clust_cand in presel.items():
+        nb = 0
+        selected_cand = []
+        
+        for category in category_rank:
+            if category not in clust_cand:
+                continue
+            
+            gc_sorted = [(cand[0], all_cand[cand[0]].gc_diff)
+                         for cand in clust_cand[category]]
+            gc_sorted = sorted(gc_sorted, key=lambda x: x[1])
+            for cand in gc_sorted:
+                selected_cand.append((cand[0], category))
+                nb += 1
+                if nb == n:
+                    break
+            
+            if nb == n:
+                break
+        
+        selected_cand_per_clust[clust_name] = selected_cand
+        
+    return selected_cand_per_clust
+        
 ##########
 ## MAIN ##
 ##########
@@ -581,4 +629,9 @@ if __name__ == "__main__":
                 gc = compute_gc(fasta)
                 all_seq[seq_id].set_gc(gc, 50.0)
                 key_file_id.unlink()
+    
+    selected_cand_per_clust = select_candidate(presel,
+                                               all_seq,
+                                               yml,
+                                               db_path)
     
