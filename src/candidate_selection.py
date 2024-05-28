@@ -180,6 +180,64 @@ def read_fasta_candidiates(fasta_file):
                 
     return all_seq
 
+def get_query_information(all_seq, data_file):
+    
+    ref_candidate_count = {}
+
+    with open(data_file) as f:
+        for line in f:
+            split_line = line.split()
+            
+            seq_id = ""
+            query = split_line[0]
+            pident = split_line[5]
+            qcobhsp = split_line[6]
+            positives = round((int(split_line[7]) / int(split_line[4])) *100, 1)
+            mismatch = round((int(split_line[8]) / int(split_line[4])) *100, 1)
+            gaps = round((int(split_line[9]) / int(split_line[4])) *100, 1)
+            e_value = split_line[10]
+            query_info = (query, pident, qcobhsp, positives, mismatch,
+                          gaps, e_value)
+            
+            
+            if query not in ref_candidate_count:
+                ref_candidate_count[query] = {"total":0, "selected":0}
+                
+            if "sp|" in split_line[2] or "tr|" in split_line[2]:
+                seq_id = re.search("\\|(\\w+)\\|", split_line[2]).group(1)
+            else:
+                seq_id = split_line[2]
+            
+            if all_seq[seq_id].query is None:
+                
+                all_seq[seq_id].set_query_info(query_info)
+                ref_candidate_count[query]["total"] += 1
+                
+            else:
+                queryB = all_seq[seq_id].query[0]
+                pidentB = all_seq[seq_id].query[1]
+                qcobhspB = all_seq[seq_id].query[2]
+                e_valueB = all_seq[seq_id].query[-1]
+                
+                if float(e_value) < float(e_valueB):
+                    all_seq[seq_id].set_query_info(query_info)
+                    ref_candidate_count[queryB]["total"] -= 1
+                    ref_candidate_count[query]["total"] += 1
+                    
+                elif float(e_value) == float(e_valueB):
+                    if pident > pidentB:
+                        all_seq[seq_id].set_query_info(query_info)
+                        ref_candidate_count[queryB]["total"] -= 1
+                        ref_candidate_count[query]["total"] += 1
+                        
+                    elif pident == pidentB:
+                        if qcobhsp > qcobhspB:
+                            all_seq[seq_id].set_query_info(query_info)
+                            ref_candidate_count[queryB]["total"] -= 1
+                            ref_candidate_count[query]["total"] += 1
+                            
+    return all_seq, ref_candidate_count
+
 def preselect_candidates(all_seq, clusters, sources, strain_library):
     
     presel = {}
@@ -439,7 +497,7 @@ def compute_gc(fasta):
     gc = ((count["G"] + count["C"]) /
           (count["A"] + count["T"] + count["G"] + count["C"])) * 100
         
-    return gc
+    return round(gc,1)
 
 def select_candidate(presel, all_cand, yml, sources_db, n=1):
     
@@ -505,7 +563,21 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
             category = cand[1]
             os = all_cand[name].os
             ox = all_cand[name].ox
+            gc = all_cand[name].gc
             genbank_id = all_cand[name].cds_id
+            
+            if all_cand[name].query is not None:
+                query_name = all_cand[name].query[0]
+                pident = all_cand[name].query[1]
+                qcovhsp = all_cand[name].query[2]
+                positives = all_cand[name].query[3]
+                mismatch = all_cand[name].query[4]
+                gaps = all_cand[name].query[5]
+                e_value = all_cand[name].query[6]
+            else:
+                query_name, pident, qcovhsp, positives = None, None, None, None
+                mismatch, gaps, e_value = None, None, None
+            
             sl_org = cand[2]
             sl_tax_id = cand[3]
             if cand[4] != None:
@@ -515,7 +587,9 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
                 sl_resource = None
                 sl_resource_id = None
             
-            line = f"{cluster}\t{name}\t{os}\t{ox}\t{genbank_id}\t{gc}\t{category}\t"
+            line = f"{cluster}\t{name}\t{os}\t{ox}\t{genbank_id}\t{gc}\t"
+            line += f"{query_name}\t{pident}\t{qcovhsp}\t{positives}\t"
+            line += f"{mismatch}\t{gaps}\t{e_value}\t{category}\t"
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
             
             if category in ["tax_id", "home_strain", "species"]:
@@ -539,7 +613,8 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
         table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
         
         header = "Cluster\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
-        header += "GC\tSelection_type\tStrain_library_organism\tStrain_library_tax_id\t"
+        header += "GC\tQuery\tid\tcov\tpositives\tmismatch\tgaps\te-value\t"
+        header += "Selection_type\tStrain_library_organism\tStrain_library_tax_id\t"
         header += "Collection\tCollection_id\n"
         
         with open(table_tsv, "w") as f:
@@ -570,6 +645,8 @@ if __name__ == "__main__":
     parser.add_argument("--sources", type=str, metavar="", required=True,
                         help="sources file indicating the sources database of each"
                         "sequences")
+    parser.add_argument("-d", "--data", type=str, metavar="",
+                        help="filtered blast output")
     
     args = parser.parse_args()
     
@@ -590,6 +667,11 @@ if __name__ == "__main__":
     fasta_file = Path(args.fasta)
     all_seq = read_fasta_candidiates(fasta_file)
     
+    if args.data is not None:
+        data_file = Path(args.data)
+    
+        all_seq, ref_candidate_count = get_query_information(all_seq, data_file)
+
     presel, finded, not_finded = preselect_candidates(all_seq, clusters,
                                                       sources, strain_library)
 
