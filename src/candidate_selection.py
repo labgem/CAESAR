@@ -473,11 +473,12 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
             if category not in clust_cand:
                 continue
             
-            gc_sorted = [(cand[0], all_cand[cand[0]].gc_diff)
-                         for cand in clust_cand[category]]
+            gc_sorted = [(cand[0], all_cand[cand[0]].gc_diff, cand[1], cand[2],
+                          cand[3]) for cand in clust_cand[category]]
             gc_sorted = sorted(gc_sorted, key=lambda x: x[1])
             for cand in gc_sorted:
-                selected_cand.append((cand[0], category))
+                selected_cand.append((cand[0], category, cand[2],
+                                      cand[3], cand[4]))
                 nb += 1
                 if nb == n:
                     break
@@ -488,6 +489,65 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
         selected_cand_per_clust[clust_name] = selected_cand
         
     return selected_cand_per_clust
+
+def write_results(selected_cand_per_clust, all_cand, outdir):
+    
+    results_categories = {"strain_library":"",
+                          "order":""}
+    
+    for cluster in selected_cand_per_clust:
+        
+        if len(selected_cand_per_clust[cluster]) == 0:
+            continue
+        
+        for cand in selected_cand_per_clust[cluster]:
+            name = cand[0]
+            category = cand[1]
+            os = all_cand[name].os
+            ox = all_cand[name].ox
+            genbank_id = all_cand[name].cds_id
+            sl_org = cand[2]
+            sl_tax_id = cand[3]
+            if cand[4] != None:
+                sl_resource = cand[4].split(",")[0]
+                sl_resource_id = cand[4].split(",")[1]
+            else:
+                sl_resource = None
+                sl_resource_id = None
+            
+            line = f"{cluster}\t{name}\t{os}\t{ox}\t{genbank_id}\t{gc}\t{category}\t"
+            line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
+            
+            if category in ["tax_id", "home_strain", "species"]:
+                results_categories["strain_library"] += line
+            elif category == "order":
+                results_categories["order"] += line
+            else:
+                if category not in results_categories:
+                    results_categories[category] = ""
+                    
+                results_categories[category] += line
+                
+    for category in results_categories:
+        if len(results_categories[category]) == 0:
+            continue
+        
+        category_dir = Path.joinpath(outdir, category)
+        if not category_dir.exists():
+            category_dir.mkdir()
+            
+        table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
+        
+        header = "Cluster\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
+        header += "GC\tSelection_type\tStrain_library_organism\tStrain_library_tax_id\t"
+        header += "Collection\tCollection_id\n"
+        
+        with open(table_tsv, "w") as f:
+            f.write(header)
+            f.write(results_categories[category])
+    
+    return 0
+            
         
 ##########
 ## MAIN ##
@@ -635,3 +695,4 @@ if __name__ == "__main__":
                                                yml,
                                                db_path)
     
+    write_results(selected_cand_per_clust, all_seq, outdir)
