@@ -550,8 +550,8 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
 
 def write_results(selected_cand_per_clust, all_cand, outdir):
     
-    results_categories = {"strain_library":"",
-                          "order":""}
+    results_categories = {"strain_library":{"table":"", "faa":"", "fna":""},
+                          "order":{"table":"", "faa":"", "fna":""}}
     
     for cluster in selected_cand_per_clust:
         
@@ -580,7 +580,7 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
             
             sl_org = cand[2]
             sl_tax_id = cand[3]
-            if cand[4] != None:
+            if cand[4] is not None:
                 sl_resource = cand[4].split(",")[0]
                 sl_resource_id = cand[4].split(",")[1]
             else:
@@ -593,17 +593,26 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
             
             if category in ["tax_id", "home_strain", "species"]:
-                results_categories["strain_library"] += line
+                results_categories["strain_library"]["table"] += line
+                results_categories["strain_library"]["faa"] += all_cand[name].protein_fasta
+                results_categories["strain_library"]["fna"] += all_cand[name].nucleic_fasta
+                
             elif category == "order":
-                results_categories["order"] += line
+                results_categories["order"]["table"] += line
+                results_categories["order"]["faa"] += all_cand[name].protein_fasta
+                results_categories["order"]["fna"] += all_cand[name].nucleic_fasta
+                
             else:
                 if category not in results_categories:
-                    results_categories[category] = ""
+                    results_categories[category] = {"table":"", "faa":"",
+                                                    "fna":""}
                     
-                results_categories[category] += line
+                results_categories[category]["table"] += line
+                results_categories[category]["faa"] += all_cand[name].protein_fasta
+                results_categories[category]["fna"] += all_cand[name].nucleic_fasta
                 
     for category in results_categories:
-        if len(results_categories[category]) == 0:
+        if len(results_categories[category]["table"]) == 0:
             continue
         
         category_dir = Path.joinpath(outdir, category)
@@ -619,7 +628,19 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
         
         with open(table_tsv, "w") as f:
             f.write(header)
-            f.write(results_categories[category])
+            f.write(results_categories[category]["table"])
+            
+        if len(results_categories[category]["faa"]) == 0:
+            pass
+        else:
+            faa_file = Path.joinpath(category_dir, "all_candidates.faa")
+            faa_file.write_text(results_categories[category]["faa"])
+            
+        if len(results_categories[category]["fna"]) == 0:
+            pass
+        else:
+            faa_file = Path.joinpath(category_dir, "all_candidates.fna")
+            faa_file.write_text(results_categories[category]["fna"])
     
     return 0
             
