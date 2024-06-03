@@ -777,7 +777,12 @@ if __name__ == "__main__":
             continue
         
         key_file_id = outdir / f"{key}_ids.txt"
-        key_file_id.write_text("\n".join(finded[key]))
+        if key != "tara":
+            key_file_id.write_text("\n".join(finded[key]))
+        else:
+            key_file_id.write_text("\n".join([s[:-2] for s in finded[key]]))
+        
+        result = run_seqkit(key_file_id, db_path[key]["fna"])
         
         result = run_seqkit(key_file_id, db_path[key]["fna"])
         
@@ -788,10 +793,17 @@ if __name__ == "__main__":
         else:
             for fasta in result.stdout.decode('utf-8').split(">")[1:]:
                 seq_id = fasta.split()[0]
-                all_seq[seq_id].update_nucleic_fasta(fasta)
-                gc = compute_gc(fasta)
-                all_seq[seq_id].set_gc(gc, 50.0)
-                key_file_id.unlink()
+                try:
+                    all_seq[seq_id].update_nucleic_fasta(fasta)
+                    gc = compute_gc(fasta)
+                    all_seq[seq_id].set_gc(gc, 50.0)
+                except KeyError:
+                    seq_id = seq_id + "_1"
+                    all_seq[seq_id].update_nucleic_fasta(fasta)
+                    gc = compute_gc(fasta)
+                    all_seq[seq_id].set_gc(gc, 50.0)
+            
+            key_file_id.unlink()
     
     selected_cand_per_clust = select_candidate(presel,
                                                all_seq,
