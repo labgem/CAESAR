@@ -643,7 +643,42 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
             faa_file.write_text(results_categories[category]["fna"])
     
     return 0
-            
+
+def add_mda(outdir, strain_library):
+    
+    sl_dir = [d for d in outdir.iterdir() if d.match("strain_library")][0]
+    
+    sl_tsv = Path.joinpath(sl_dir, "all_candidates.tsv")
+    new_line = ""
+    with sl_tsv.open("r") as f:
+        for i, line in enumerate(f):
+            if i != 0:
+                taxid = line.split("\t")[4]
+                collection = line.split("\t")[-2]
+                collection_id = line.split("\t")[-1].strip()
+
+                try:
+                    tax_index = strain_library["tax_id"].index(taxid)
+                    new_line += line.strip() + "\t" + f"{strain_library['mda'][tax_index]}\n"
+                except ValueError:
+                    
+                    try:
+                        collection_str = f"{collection},{collection_id}"
+                        ressource_index = strain_library["resource"].index(collection_str)
+                        new_line += line.strip() + "\t" + f"{strain_library['mda'][ressource_index]}\n"
+                    except ValueError:
+                       new_line += line.strip() + "\t" + "None\n"
+                       logging.error("did not find this tax_id or collection_id"
+                                     " in the strain_library to add the mda"
+                                     " column to the output for strain_library"
+                                     " candidates")
+                        
+            else:
+                new_line += line.strip() + "\t" + "MDA\n"
+                
+    sl_tsv.write_text(new_line)
+    
+    return 0            
         
 ##########
 ## MAIN ##
@@ -811,3 +846,6 @@ if __name__ == "__main__":
                                                db_path)
     
     write_results(selected_cand_per_clust, all_seq, outdir)
+    
+    if "mda" in strain_library:
+        add_mda(outdir, strain_library)
