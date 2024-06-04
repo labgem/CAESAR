@@ -81,9 +81,25 @@ def read_yaml_config(config_path):
     
     return db_path, yml
 
-def read_clusters(cluster_file):
+def read_update_file(update_file):
+    
+    exclude_cand = set()
+    with open(update_file, "r") as f:
+        for line in f:
+            seq_id = ""
+            if "tr|" in line.strip() or "sp|" in line.strip():
+                seq_id = re.search("\\|(\\w+)\\|", line).group(1)
+            else:
+                seq_id = line.strip()
+                
+            exclude_cand.add(seq_id)
+            
+    return exclude_cand
+
+def read_clusters(cluster_file, exclude_cand):
     
     clusters = {}
+    exclude_cluster = set()
     
     with open(cluster_file, "r") as f:
         for line in f:
@@ -92,20 +108,28 @@ def read_clusters(cluster_file):
             # If the cluster name it's in the uniprot header format
             if "sp|" in split_line[0] or "tr|" in split_line[0]:
                 ref = re.search("\\|(\\w+)\\|", split_line[0]).group(1)
-                if clusters.get(ref) is None:
-                    clusters[ref] = []
             
             else:
                 ref = split_line[0]
-                if clusters.get(ref) is None:
-                    clusters[ref] = []
             
             # If the member name it's in the uniprot header format      
             if "sp|" in split_line[1] or "tr|" in split_line[1]:
                 member = re.search("\\|(\\w+)\\|", split_line[1]).group(1)
-                clusters[ref].append(member)
             else:
-                clusters[ref].append(split_line[1])
+                member = split_line[1]
+            
+            if ref not in clusters:
+                clusters[ref] = []
+            
+            clusters[ref].append(member)
+            
+            if ref in exclude_cand:
+                exclude_cluster.add(ref)
+            elif member in exclude_cand:
+                exclude_cluster.add(ref)
+    
+    for clust in exclude_cluster:
+        del clusters[clust]
     
     return clusters
 
@@ -703,6 +727,9 @@ if __name__ == "__main__":
                         "sequences")
     parser.add_argument("-d", "--data", type=str, metavar="",
                         help="filtered blast output")
+    parser.add_argument("-u", "--update", type=str, metavar="",
+                        help="file containing a list of identifiers, the groups"
+                        " in which they are found will be excluded")
     
     args = parser.parse_args()
     
@@ -711,8 +738,13 @@ if __name__ == "__main__":
     config_path = Path(args.config)
     db_path, yml = read_yaml_config(config_path)
     
+    if args.update is not None:
+        update_file = Path(args.update)
+        exclude_cand = read_update_file(update_file)
+    else:
+        exclude_cand = set()
     cluster_file = Path(args.clusters)
-    clusters = read_clusters(cluster_file)
+    clusters = read_clusters(cluster_file, exclude_cand)
     
     sources_file = Path(args.sources)
     sources = read_sources_file(sources_file)
