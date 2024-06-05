@@ -19,8 +19,28 @@ from filter import run_seqkit
 ###########
 
 class Candidate():
+    """A class to represent a candidate sequence
+    
+    Attributes
+    ----------
+    name (str): sequence id
+    protein_fasta (str): protein sequence in fasta format
+    nucliec_fasta (str): nucleic sequence in fasta with the header of protein_fasta
+    os (str): organism name
+    ox (str): tax id
+    cds_id (str): EMBL-GenBank-DDBJ_CDS id
+    gc (float): %GC
+    gc_diff (float): difference between the target %GC and the %GC of the sequence
+    source (str): string to indicate the origin database
+    query (tuple): information from blast output
+    """
     
     def __init__(self, name):
+        """Initialize the object
+
+        Args:
+            name (str): sequence id
+        """
         self.name = name
         self.protein_fasta = ""
         self.nucleic_fasta = ""
@@ -33,31 +53,78 @@ class Candidate():
         self.query = None
         
     def __str__(self):
+        """return a human-readable string to represent the object
+
+        Returns:
+            str: formatted string
+        """
         return f"{self.name} {self.os} {self.ox} {self.source}"
 
     def set_organism_name(self, os):
+        """Sets the organism name
+
+        Args:
+            os (str): organism name
+        """
         self.os = os
         
     def set_organism_identifier(self, ox):
+        """Sets the tax id
+
+        Args:
+            ox (str): tax id
+        """
         self.ox = ox
         
     def set_cds_id(self, cds_id):
+        """Sets the EMBL-GenBank-DDBJ_CDS id
+
+        Args:
+            cds_id (str): EMBL-GenBank-DDBJ_CDS id
+        """
         self.cds_id = cds_id
         
     def set_query_info(self, query_info):
+        """Sets the information on the query sequence that best matches the
+        candidate
+
+        Args:
+            query_info (tuple): tuple containing info from the blast output
+        """
         self.query = query_info
         
     def set_source(self, source):
+        """Sets the source (origin) database
+
+        Args:
+            source (str): source (origin) database
+        """
         self.source = source
         
-    def set_gc(self, gc, gc_goal):
+    def set_gc(self, gc, gc_target):
+        """Sets the %GC of the nucleic sequence
+
+        Args:
+            gc (float): %GC of the candidate
+            gc_target (float): target %GC
+        """
         self.gc = gc
-        self.gc_diff = abs(gc_goal - gc)
+        self.gc_diff = abs(gc_target - gc)
         
     def update_protein_fasta(self, s):
+        """Sets or update fasta of protein sequence
+
+        Args:
+            s (str): string
+        """
         self.protein_fasta += s
         
     def update_nucleic_fasta(self, s):
+        """Sets or update fasta of nucleic sequence
+
+        Args:
+            s (st): string
+        """
         self.nucleic_fasta += s
 
 ##############
@@ -65,6 +132,15 @@ class Candidate():
 ##############
 
 def read_yaml_config(config_path):
+    """Reads the config file in yaml format
+
+    Args:
+        config_path (Path): path of the config file
+
+    Returns:
+        db_path (dict): path of the databases
+        yml (dict): the config file loaded in a dictionnary
+    """
     
     with open(config_path, "r") as f:
         yml = yaml.safe_load(f)
@@ -82,11 +158,21 @@ def read_yaml_config(config_path):
     return db_path, yml
 
 def read_update_file(update_file):
+    """Reads the file containing the list of identifiers to exclude,
+    together with all their clusters.
+
+    Args:
+        update_file (Path): path of the update file
+
+    Returns:
+        exclude_cand (set): set containing the ids present in the file
+    """
     
     exclude_cand = set()
     with open(update_file, "r") as f:
         for line in f:
             seq_id = ""
+            # uniprot identifier
             if "tr|" in line.strip() or "sp|" in line.strip():
                 seq_id = re.search("\\|(\\w+)\\|", line).group(1)
             else:
@@ -97,6 +183,16 @@ def read_update_file(update_file):
     return exclude_cand
 
 def read_clusters(cluster_file, exclude_cand):
+    """Reads the cluster tsv file
+
+    Args:
+        cluster_file (Path): path of the cluster tsv file
+        exclude_cand (set): set containing the ids to exlude
+
+    Returns:
+        clusters (dict): the cluster name as key and the list of members as
+        value 
+    """
     
     clusters = {}
     exclude_cluster = set()
@@ -105,14 +201,14 @@ def read_clusters(cluster_file, exclude_cand):
         for line in f:
             split_line = line.split()
             
-            # If the cluster name it's in the uniprot header format
+            # If the cluster name it's in the uniprot identifier format
             if "sp|" in split_line[0] or "tr|" in split_line[0]:
                 ref = re.search("\\|(\\w+)\\|", split_line[0]).group(1)
             
             else:
                 ref = split_line[0]
             
-            # If the member name it's in the uniprot header format      
+            # If the member name it's in the uniprot identifier format      
             if "sp|" in split_line[1] or "tr|" in split_line[1]:
                 member = re.search("\\|(\\w+)\\|", split_line[1]).group(1)
             else:
@@ -128,18 +224,28 @@ def read_clusters(cluster_file, exclude_cand):
             elif member in exclude_cand:
                 exclude_cluster.add(ref)
     
+    # Removes the clusters with their name in exclude_cluster
     for clust in exclude_cluster:
         del clusters[clust]
     
     return clusters
 
 def read_sources_file(sources_file):
+    """Reads sources file
+
+    Args:
+        sources_file (Path): path of the sources file
+
+    Returns:
+        sources (dict): sequence id as key and the source database as value
+    """
     
     sources = {}
     
     with open(sources_file, "r") as f:
         for line in f:
             split_line = line.split()
+            # uniprot identifier
             if "sp|" in split_line[0] or "tr|" in split_line[0]:
                 seq_id = re.search("\\|(\\w+)\\|", split_line[0]).group(1)
                 sources[seq_id] = split_line[1]
@@ -149,6 +255,15 @@ def read_sources_file(sources_file):
     return sources
 
 def read_strain_library(strain_library_path):
+    """Reads strain library file
+
+    Args:
+        strain_library_path (Path): path of the strain library file
+
+    Returns:
+        strain_library (dict): each key have as value a list corresponding to 
+        one or two columns of the strain library file
+    """
     
     strain_library = {"name":[], "tax_id":[], "resource":[]}
     mda = False
@@ -171,6 +286,16 @@ def read_strain_library(strain_library_path):
     return strain_library
 
 def read_fasta_candidiates(fasta_file):
+    """Reads a multi fasta file
+    
+    For each sequence, a Candidate object is created
+
+    Args:
+        fasta_file (Path): path of the fasta file
+
+    Returns:
+        all_seq (dict): as key the sequence id and as value a Candidate object
+    """
 
     all_seq = {}
     
@@ -183,18 +308,22 @@ def read_fasta_candidiates(fasta_file):
                 # If other header
                 else:
                     seq_id = line[1:].split()[0]
-                    
+                
+                # Instantiate a Candidate object
                 all_seq[seq_id] = Candidate(seq_id)
+                # Adds the line to the protein_fasta attribute
                 all_seq[seq_id].update_protein_fasta(line)
                 
                 try:
                     os = re.search("OS=(.+?)(.OX|$)", line).group(1)
+                    # Sets the organism name
                     all_seq[seq_id].set_organism_name(os)
                 except AttributeError:
                     continue
                 
                 try:
                     ox = re.search("OX=(\\d+)", line).group(1)
+                    # Sets the tax id
                     all_seq[seq_id].set_organism_identifier(ox)
                 except AttributeError:
                     continue
@@ -205,6 +334,18 @@ def read_fasta_candidiates(fasta_file):
     return all_seq
 
 def get_query_information(all_seq, data_file):
+    """Reads blast outputs to get information between candiates and queries
+    (reference sequences)
+
+    Args:
+        all_seq (dict): as key the sequence id and as value a Candidate object
+        data_file (Path): path of the file containing the data
+
+    Returns:
+        all_seq (dict): the dict with the updated object
+        ref_candidate_count (dict): for each reference, indicate the number of 
+        candidate who matched with it
+    """
     
     ref_candidate_count = {}
 
@@ -236,7 +377,9 @@ def get_query_information(all_seq, data_file):
                 
                 all_seq[seq_id].set_query_info(query_info)
                 ref_candidate_count[query]["total"] += 1
-                
+            
+            # If a candidate has matched with more than one reference, they are
+            # only counted for the reference for whixh they obtained the best scpre
             else:
                 queryB = all_seq[seq_id].query[0]
                 pidentB = all_seq[seq_id].query[1]
@@ -263,6 +406,22 @@ def get_query_information(all_seq, data_file):
     return all_seq, ref_candidate_count
 
 def preselect_candidates(all_seq, clusters, sources, strain_library):
+    """Selects candidates according to the content of the strain library
+
+    Args:
+        all_seq (dict): as key the sequence id and as value a Candidate object
+        clusters (dict): the cluster name as key and the list of members as value 
+        sources (dict): sequence id as key and the source database as value
+        strain_library (dict): each key have as value a list corresponding to 
+        one or two columns of the strain library file
+
+    Returns:
+        presel (dict): as key the cluster name and as value a dict with the
+        list of selected candidates for each category of selection
+        finded (dict): as key the source db and as value the set of preselected 
+        candidate ids
+        not_finded (set): the candidate with no correspondance in the strain library
+    """
     
     presel = {}
     not_finded = set()
@@ -272,11 +431,11 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
     
     for clust in clusters:
         # 1st : tax id
-        # 2nd : organism name (excact match, include strain etc)
-        # 3rd : DSM or ATCC id in strain_library
-        # 4th : organism name (same specie)
-        # 5th : alt db
+        # 2nd : DSM or ATCC id
+        # 3rd : organism name
+        # 4th : alt db
         
+        # the different type of selection
         clust_cand = {"tax_id":[], "home_strain":[], "species":[], "order":[]}
         for db in alt_db:
             clust_cand[db] = []
@@ -303,6 +462,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
             except TypeError:
                 pass
             
+            # Don't selects organism with at least one of this key word in the name
             p = "unclassified|bacterium|archaeon|fragment|uncultured|_"
             
             find = False
@@ -321,6 +481,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                 
                 elif key == "resource":
                     for i in range(len(strain_library[key])):
+                        # DSM
                         if dsm_id == strain_library[key][i]:
                             clust_cand["home_strain"].append((cand,
                                                               strain_library["name"][i],
@@ -329,6 +490,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                             find = True
                             break
                         
+                        # ATCC
                         elif atcc_id == strain_library[key][i]:
                             clust_cand["home_strain"].append((cand,
                                                               strain_library["name"][i],
@@ -338,10 +500,12 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                             break
             
                 elif key == "name":
+                    # search for banned keyword
                     if os is not None and re.search(p, os):
                         break
                     
                     elif os is not None:
+                        # traditional organism is in the format : genus species
                         os_split = os.split()
                         genus = os_split[0]
                         specie = os_split[1]
@@ -349,6 +513,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                         name = f"{genus}\\s{specie}"
                         for i in range(len(strain_library[key])):
 
+                            # Checks exact match
                             if os == strain_library[key][i]:
                                 clust_cand["species"].append((cand,
                                                             strain_library["name"][i],
@@ -357,6 +522,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                                 find = True
                                 break
                             
+                            # Checks if the name pattern match
                             elif re.search(name, strain_library[key][i]):
                                 clust_cand["species"].append((cand,
                                                                 strain_library["name"][i],
@@ -364,8 +530,11 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                                                                 strain_library["resource"][i]))
                                 find = True
                                 break
-                                    
+                        
+                        # No correspondance in the strain library         
                         if find is False:
+                            # If a DSM or ATCC id is present, the candidate can
+                            # be purchased from the collections
                             if dsm_id is not None:
                                 clust_cand["order"].append((cand,os,ox,dsm_id))
                                 find = True
@@ -375,14 +544,19 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                                         
                                 find = True
                     
+                    # If 'OS=' isn't in the header, this means that the sequence
+                    # comes from a db other than uniprot or nr 
+                    # (the header format is modified by CAESAR)
                     elif len(alt_db) != 0:
                         clust_cand[sources[cand]].append((cand,None,None,None))
                         find = True
-                    
+                
+                # Adds the candidates in the finded dict  
                 if find is True:
                     finded[sources[cand]].add(cand)
                     break
-            
+                
+            # Adds the candidates in the not_finded set
             if find is False:
                 not_finded.add(cand)
             
@@ -391,6 +565,22 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
     return presel, finded, not_finded
 
 def uniprot_id_mapping(query):
+    """Sends a request at the ID Mapping Tool of uniprot
+
+    Map Uniprot id to EMBL-GenBank-DDBJ_CDS
+
+    Args:
+        query (list): list of ids
+
+    Raises:
+        ValueError: raised if more than 100 000 ids is provided
+        RuntimeError: raised if jobStatus is present with a status different from
+        'RUNNING' or 'NEW'
+        TypeError: raised if the job is completed but no result is returned
+
+    Returns:
+        result (requests.Response): the response
+    """
     
     if len(query) > 100_000:
         raise ValueError(f"number of ids must be less than 100 000")
@@ -442,6 +632,15 @@ def uniprot_id_mapping(query):
                     
                     
 def read_id_mapping_tool_result(result):
+    """Reads the response of ID Mapping Tool
+
+    Args:
+        result (requests.Response): the response
+
+    Returns:
+        cds_map (dict): as key the EMBL-GenBank-DDBJ_CDS id and as value the
+        uniport id
+    """
     
     cds_map = {}
     
@@ -453,6 +652,18 @@ def read_id_mapping_tool_result(result):
     return cds_map
 
 def efecth_fasta_cds_na(query, mail):
+    """Fetchs the nucleic fasta of the cds from the ncbi database
+
+    Args:
+        query (list): list of ids
+        mail (str): mail
+
+    Raises:
+        ValueError: raised if more than 200 ids is provided
+
+    Returns:
+        handle (urllib.request.Request): handle to the results
+    """
     
     Entrez.email = mail
     
@@ -467,7 +678,17 @@ def efecth_fasta_cds_na(query, mail):
     return handle
 
 def read_cds_na(handle, all_seq, uniprot_cds_map):
-    
+    """Reads the handle containing the fasta
+
+    Args:
+        handle (urllib.request.Request): _description_
+        all_seq (dict): as key the sequence id and as value a Candidate object
+        uniprot_cds_map (dict): as key the EMBL-GenBank-DDBJ_CDS id and as value
+        the uniport id
+
+    Returns:
+        all_seq (dict): the dict with the updated Candidate object
+    """
     
     for fasta in handle.read().split(">")[1:]:
         try:
@@ -475,12 +696,15 @@ def read_cds_na(handle, all_seq, uniprot_cds_map):
         except:
             continue
         
+        # If source db = uniprot
         if protein_id in uniprot_cds_map:
             uniprot_id = uniprot_cds_map[protein_id]
             protein_header = all_seq[uniprot_id].protein_fasta.split("\n")[0]
+            # replace the header by the same as in .protein_fasta
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
             all_seq[uniprot_id].update_nucleic_fasta(nucleic_fasta)
             all_seq[uniprot_id].set_cds_id(protein_id)
+            # Calculate the %GC
             try:
                 gc = compute_gc(nucleic_fasta)
                 all_seq[uniprot_id].set_gc(gc, 50.0)
@@ -500,6 +724,14 @@ def read_cds_na(handle, all_seq, uniprot_cds_map):
     return all_seq
 
 def worker(data):
+    """Function run by a worker of ThreadPoolExecutor
+
+    Args:
+        data (list): list of all necessary variables
+
+    Returns:
+        all_seq (dict): the dict with the updated Candidate object
+    """
     query = data[0]
     mail = data[1]
     uniprot_cds_map = data[2]
@@ -512,11 +744,18 @@ def worker(data):
 
 
 def compute_gc(fasta):
+    """Calculates the %GC
+
+    Args:
+        fasta (str): sequence in fasta format
+
+    Returns:
+        gc (float): the %GC
+    """
     
     seq = "".join(fasta.split("\n")[1:])
     
     count = Counter(seq)
-    
     
     gc = ((count["G"] + count["C"]) /
           (count["A"] + count["T"] + count["G"] + count["C"])) * 100
@@ -524,9 +763,24 @@ def compute_gc(fasta):
     return round(gc,1)
 
 def select_candidate(presel, all_cand, yml, sources_db, n=1):
+    """Selection the candidates
+
+    Args:
+        presel (dict): the preselected candidates for each cluster for each 
+        category of selection
+        all_cand (dict): as key the sequence id and as value a Candidate object
+        yml (dict): the config file loaded in a dictionnary
+        sources_db (dict): path of the databases
+        n (int, optional): maximum number of candidates per group, defaults to 1
+
+    Returns:
+        selected_cand_per_clust (dict): as key the cluster name and as value a
+        list with a 5-tuple per candidate
+    """
     
     selected_cand_per_clust = {}
     
+    # Define a priority order for the categories
     category_rank = []
     
     if "candidate_selection" in yml:
@@ -547,6 +801,7 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
         category_rank.extend([cat.lower() for cat in category_rank if cat
                               not in ["uniprot", "nr"]])
     
+    # For each cluster selects candidates
     for clust_name, clust_cand in presel.items():
         nb = 0
         selected_cand = []
@@ -555,6 +810,8 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
             if category not in clust_cand:
                 continue
             
+            # selects the candidates based on the difference between their %GC
+            # and a taget %GC
             gc_sorted = [(cand[0], all_cand[cand[0]].gc_diff, cand[1], cand[2],
                           cand[3]) for cand in clust_cand[category]]
             gc_sorted = sorted(gc_sorted, key=lambda x: x[1])
@@ -573,45 +830,59 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
     return selected_cand_per_clust
 
 def write_results(selected_cand_per_clust, all_cand, outdir):
+    """Writes the outputs
+
+    Args:
+        selected_cand_per_clust (dict): The selected candiate(s) per cluster
+        all_cand (_type_): _description_
+        outdir (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     
     results_categories = {"strain_library":{"table":"", "faa":"", "fna":""},
                           "order":{"table":"", "faa":"", "fna":""}}
     
+    # Loop to complete results_categories
     for cluster in selected_cand_per_clust:
         
         if len(selected_cand_per_clust[cluster]) == 0:
             continue
         
         for cand in selected_cand_per_clust[cluster]:
-            name = cand[0]
-            category = cand[1]
-            os = all_cand[name].os
-            ox = all_cand[name].ox
-            gc = all_cand[name].gc
-            genbank_id = all_cand[name].cds_id
+            name = cand[0]  # sequence id
+            category = cand[1]  # category/type of selection, e.g : tax_id, home_strain...
+            os = all_cand[name].os  # organisme name
+            ox = all_cand[name].ox  # tax id
+            gc = all_cand[name].gc  # %GC
+            cds_id = all_cand[name].cds_id  # EMBL-GenBank-DDBJ_CDS
             
             if all_cand[name].query is not None:
-                query_name = all_cand[name].query[0]
-                pident = all_cand[name].query[1]
-                qcovhsp = all_cand[name].query[2]
-                positives = all_cand[name].query[3]
-                mismatch = all_cand[name].query[4]
-                gaps = all_cand[name].query[5]
-                e_value = all_cand[name].query[6]
+                query_name = all_cand[name].query[0]  # reference sequence name
+                pident = all_cand[name].query[1]  # %id
+                qcovhsp = all_cand[name].query[2]  # %cov
+                positives = all_cand[name].query[3]  # %positives
+                mismatch = all_cand[name].query[4]  # %mismatch
+                gaps = all_cand[name].query[5]  # %gaps
+                e_value = all_cand[name].query[6]  # e-value
+            
+            # provide a data file with the -d/--data flag is optional
             else:
                 query_name, pident, qcovhsp, positives = None, None, None, None
                 mismatch, gaps, e_value = None, None, None
             
-            sl_org = cand[2]
-            sl_tax_id = cand[3]
+            sl_org = cand[2]  # organism name of the line that match in strain library
+            sl_tax_id = cand[3]  # tax_id of the line that match in strain library
+            
             if cand[4] is not None:
-                sl_resource = cand[4].split(",")[0]
-                sl_resource_id = cand[4].split(",")[1]
+                sl_resource = cand[4].split(",")[0]  # ATCC or DSM
+                sl_resource_id = cand[4].split(",")[1]  # id in the collection
             else:
                 sl_resource = None
                 sl_resource_id = None
             
-            line = f"{cluster}\t{name}\t{os}\t{ox}\t{genbank_id}\t{gc}\t"
+            line = f"{cluster}\t{name}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
             line += f"{query_name}\t{pident}\t{qcovhsp}\t{positives}\t"
             line += f"{mismatch}\t{gaps}\t{e_value}\t{category}\t"
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
@@ -634,15 +905,17 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
                 results_categories[category]["table"] += line
                 results_categories[category]["faa"] += all_cand[name].protein_fasta
                 results_categories[category]["fna"] += all_cand[name].nucleic_fasta
-                
+    
+    # Loop to writes results per category       
     for category in results_categories:
         if len(results_categories[category]["table"]) == 0:
             continue
         
+        # subdirectories
         category_dir = Path.joinpath(outdir, category)
         if not category_dir.exists():
             category_dir.mkdir()
-            
+        
         table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
         
         header = "Cluster\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
