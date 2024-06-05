@@ -1003,6 +1003,8 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--update", type=str, metavar="",
                         help="file containing a list of identifiers, the groups"
                         " in which they are found will be excluded")
+    parser.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+                        help="maximum number of candidate per cluster [default: 1]")
     
     args = parser.parse_args()
     
@@ -1148,7 +1150,8 @@ if __name__ == "__main__":
     selected_cand_per_clust = select_candidate(presel,
                                                all_seq,
                                                yml,
-                                               db_path)
+                                               db_path,
+                                               n=args.nb_cand)
     
     write_results(selected_cand_per_clust, all_seq, outdir)
     
