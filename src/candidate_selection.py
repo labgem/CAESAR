@@ -230,6 +230,39 @@ def read_clusters(cluster_file, exclude_cand):
     
     return clusters
 
+def max_candidate_per_cluster(clusters, value):
+    """Defines the maximum number of candidate to selection per cluster
+
+    Args:
+        clusters (dict): as key the cluster name and as value the set of members
+        value (int | float):  the maximum number of candidate or a percentage of
+        the cluster size
+
+    Raises:
+        TypeError: raised if value isn't an int or a float
+
+    Returns:
+        max_cand (dict): as key the cluster name and as value the maximum number 
+    """
+    
+    max_cand = {}
+    
+    if isinstance(value, int):
+        max_cand = {k:value for k in clusters}
+    
+    elif isinstance(value, float):
+        for clust in clusters:
+            n = int(round(len(clusters[clust]) / (100/value), 0))
+            if n == 0:
+                n = 1
+            
+            max_cand[clust] = n
+        
+    else:
+        raise TypeError(f"'value' should be an int or a float not a: {type(value)}")
+    
+    return max_cand
+
 def read_sources_file(sources_file):
     """Reads sources file
 
@@ -762,7 +795,7 @@ def compute_gc(fasta):
         
     return round(gc,1)
 
-def select_candidate(presel, all_cand, yml, sources_db, n=1):
+def select_candidate(presel, all_cand, yml, sources_db, max_cand):
     """Selection the candidates
 
     Args:
@@ -771,7 +804,8 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
         all_cand (dict): as key the sequence id and as value a Candidate object
         yml (dict): the config file loaded in a dictionnary
         sources_db (dict): path of the databases
-        n (int, optional): maximum number of candidates per group, defaults to 1
+        max_cand (dict): for each cluster, indicates the maximum number of 
+        candidates to selection
 
     Returns:
         selected_cand_per_clust (dict): as key the cluster name and as value a
@@ -819,10 +853,10 @@ def select_candidate(presel, all_cand, yml, sources_db, n=1):
                 selected_cand.append((cand[0], category, cand[2],
                                       cand[3], cand[4]))
                 nb += 1
-                if nb == n:
+                if nb == max_cand[clust_name]:
                     break
             
-            if nb == n:
+            if nb == max_cand[clust_name]:
                 break
         
         selected_cand_per_clust[clust_name] = selected_cand
@@ -1003,8 +1037,13 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--update", type=str, metavar="",
                         help="file containing a list of identifiers, the groups"
                         " in which they are found will be excluded")
-    parser.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+    ncand_group = parser.add_mutually_exclusive_group()
+    ncand_group.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
                         help="maximum number of candidate per cluster [default: 1]")
+    ncand_group.add_argument("--cov-per-cluster", type=float, metavar="",
+                             help="Uses a percentage of each cluster as "
+                             "maximum number of candidates rather than a given"
+                             " number")
     
     args = parser.parse_args()
     
@@ -1020,6 +1059,13 @@ if __name__ == "__main__":
         exclude_cand = set()
     cluster_file = Path(args.clusters)
     clusters = read_clusters(cluster_file, exclude_cand)
+    
+    if args.cov_per_cluster is not None:
+        max_cand = max_candidate_per_cluster(clusters, args.cov_per_cluster)
+    else:
+        max_cand = max_candidate_per_cluster(clusters, args.nb_cand)
+    
+    print(max_cand)
     
     sources_file = Path(args.sources)
     sources = read_sources_file(sources_file)
@@ -1126,8 +1172,6 @@ if __name__ == "__main__":
         
         result = run_seqkit(key_file_id, db_path[key]["fna"])
         
-        result = run_seqkit(key_file_id, db_path[key]["fna"])
-        
         if result.returncode != 0:
             logging.info("An error has occured during seqkit process to obtain",
                          f" nucleic sequences for {key}:",
@@ -1151,7 +1195,7 @@ if __name__ == "__main__":
                                                all_seq,
                                                yml,
                                                db_path,
-                                               n=args.nb_cand)
+                                               max_cand)
     
     write_results(selected_cand_per_clust, all_seq, outdir)
     
