@@ -104,7 +104,9 @@ fi
 
 if [ -z $query ]
 then
+    echo "Error: argument -q is required"
     Help
+    exit 1
 fi
 
 echo $(date)
