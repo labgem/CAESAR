@@ -710,7 +710,7 @@ def efecth_fasta_cds_na(query, mail):
     
     return handle
 
-def read_cds_na(handle, all_seq, uniprot_cds_map):
+def read_cds_na(handle, all_seq, uniprot_cds_map, target_gc):
     """Reads the handle containing the fasta
 
     Args:
@@ -718,6 +718,7 @@ def read_cds_na(handle, all_seq, uniprot_cds_map):
         all_seq (dict): as key the sequence id and as value a Candidate object
         uniprot_cds_map (dict): as key the EMBL-GenBank-DDBJ_CDS id and as value
         the uniport id
+        target_gc (float): the target of %GC
 
     Returns:
         all_seq (dict): the dict with the updated Candidate object
@@ -750,7 +751,7 @@ def read_cds_na(handle, all_seq, uniprot_cds_map):
             all_seq[protein_id].set_cds_id(protein_id)
             try:
                 gc = compute_gc(nucleic_fasta)
-                all_seq[protein_id].set_gc(gc, 50.0)
+                all_seq[protein_id].set_gc(gc, target_gc)
             except ZeroDivisionError:
                 continue
         
@@ -769,9 +770,10 @@ def worker(data):
     mail = data[1]
     uniprot_cds_map = data[2]
     all_seq = data[3]
+    target_gc = data[4]
     
     handle = efecth_fasta_cds_na(query, mail)
-    all_seq = read_cds_na(handle, all_seq, uniprot_cds_map)
+    all_seq = read_cds_na(handle, all_seq, uniprot_cds_map, target_gc)
     
     return all_seq
 
@@ -1037,6 +1039,8 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--update", type=str, metavar="",
                         help="file containing a list of identifiers, the groups"
                         " in which they are found will be excluded")
+    parser.add_argument("--gc", type=float, metavar="", default=50.0,
+                        help="Target GC percentage to decide between candidates")
     ncand_group = parser.add_mutually_exclusive_group()
     ncand_group.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
                         help="maximum number of candidate per cluster [default: 1]")
@@ -1064,8 +1068,6 @@ if __name__ == "__main__":
         max_cand = max_candidate_per_cluster(clusters, args.cov_per_cluster)
     else:
         max_cand = max_candidate_per_cluster(clusters, args.nb_cand)
-    
-    print(max_cand)
     
     sources_file = Path(args.sources)
     sources = read_sources_file(sources_file)
@@ -1131,7 +1133,7 @@ if __name__ == "__main__":
                     query_cand[v] = all_seq[v]
                     query_map_cds[k] = v
 
-            data.append((query, yml["mail"], query_map_cds, query_cand))
+            data.append((query, yml["mail"], query_map_cds, query_cand, args.gc))
         
         logging.info(f"NCBI efetch fasta_cds_na")
         with ThreadPoolExecutor(max_workers=3) as executor:
