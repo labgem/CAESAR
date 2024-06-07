@@ -13,19 +13,28 @@ Help(){
     echo "  -i    minimum %identity [default: 30.0]"
     echo "  -c    minimum %coverage [default: 80.0]"
     echo "  -p    uses gnu parallel to run 2 jobs, each job uses n threads"
-    echo "        corresponding to the value of the -t option"
+    echo "        corresponding to the value of the -t option divide by 2"
 }
 
 export -f Help
 
 Diamond_blastp(){
 
-    n=$(($1 / 2))
-    db=$2
-    query=$3
-    outdir=$4
-    id=$5
-    cov=$6
+    echo $1 $2
+    if [ $1 == 1 ]
+    then
+        n=$(($2 / 2))
+    else
+        n=$2
+    fi
+    db=$3
+    query=$4
+    outdir=$5
+    id=$6
+    cov=$7
+
+    echo $n
+
     source=$(echo $db | grep -oE '([A-Za-z0-9_]+)\.dmnd' | cut -d . -f 1)
 	source=$(echo "${source,,}")
 
@@ -36,14 +45,14 @@ Diamond_blastp(){
 export -f Diamond_blastp
 
 Parallel_run(){
-    threads=$1
-    query=$2
-    outdir=$3
-    id=$4
-    cov=$5
-    shift 5
+    threads=$2
+    query=$3
+    outdir=$4
+    id=$5
+    cov=$6
+    shift 6
 
-    parallel --link --jobs 2 Diamond_blastp ::: $threads ::: $@ ::: $query ::: $outdir ::: $id ::: $cov
+    parallel --link --jobs 2 Diamond_blastp ::: 1 ::: $threads ::: $@ ::: $query ::: $outdir ::: $id ::: $cov
 }
 
 export -f Parallel_run
@@ -110,7 +119,7 @@ then
     exit 1
 fi
 
-if [ -z $@ ]
+if [ $# == 0 ]
 then
     echo "requires at least one positional argument"
     echo
@@ -118,16 +127,25 @@ then
     exit 1
 fi
 
-echo $(date)
-SECONDS=0
-
 if [ $par == 1 ]
 then
-    Parallel_run $threads $query $outdir $id $cov $@
+    if [ `expr $threads % 2` != 0 ]
+    then
+        echo "Error: if -p is set, the -t value must be even"
+        echo
+        Help
+        exit 1
+    else
+        echo $(date)
+        SECONDS=0
+        Parallel_run 1 $threads $query $outdir $id $cov $@
+    fi
 else
+    echo $(date)
+    SECONDS=0
     for db in $@
     do
-        Diamond_blastp $threads $db $query $outdir $id $cov
+        Diamond_blastp 0 $threads $db $query $outdir $id $cov
     done
 fi
 
