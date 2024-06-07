@@ -97,14 +97,23 @@ done
 
 shift $((OPTIND-1))
 
-if [ ! -f $outdir && $outdir != "." ]
+if [ ! -f $outdir ] && [ $outdir != "." ]
 then
     mkdir $outdir
 fi
 
-if [ -z $query ]
+if [ ! -f $query ] || [ -z $query ]
 then
-    echo "Error: argument -q is required"
+    echo "Error: argument -q is required and muste be an existing file"
+    echo
+    Help
+    exit 1
+fi
+
+if [ -z $@ ]
+then
+    echo "requires at least one positional argument"
+    echo
     Help
     exit 1
 fi
