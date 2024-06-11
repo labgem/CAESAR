@@ -8,6 +8,7 @@ import logging
 import re
 import requests
 import subprocess
+import sys
 import textwrap
 import time
 import yaml
@@ -347,7 +348,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config", type=str, metavar="", required=True,
                         help="the configuration file in yaml format")
     parser.add_argument("-d", "--data", type=str, metavar="", required=True,
-                        help="directory containing blast output")
+                        help="directory containing blast output or a blast"
+                        " output")
     parser.add_argument("-q", "--query", type=str, metavar="", required=True,
                         help="set of reference sequences")
     parser.add_argument('--id', type=float, metavar="", default=30.0,
@@ -371,7 +373,14 @@ if __name__ == "__main__":
 
     logging.info(f"selected superkingdoms: {args.tax}")
 
-    blastp_list_file = Path(args.data).glob("matches*.tsv")
+    if Path(args.data).is_dir():
+        blastp_list_file = Path(args.data).glob("matches*.tsv")
+    elif Path(args.data).is_file():
+        blastp_list_file = [Path(args.data)]
+    else:
+        logging.error(f"'{args.data}' was not found")
+        sys.exit(1)
+        
     map_seq = {}
     blastp_map = {}
     
