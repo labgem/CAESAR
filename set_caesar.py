@@ -1,9 +1,12 @@
 import argparse
 import difflib
 import logging
+import os
+import psutil
 import sys
 import yaml
 from pathlib import Path
+from psutil._common import bytes2human
 
 
 ###############
@@ -136,6 +139,33 @@ def check_required_inputs(**kwargs):
     
     return list_path
 
+def check_general_options(slurm, **kwargs):
+    
+    for arg in kwargs:
+        if slurm is False:
+            if arg == "threads":
+                n = os.cpu_count()
+                if kwargs[arg] > n:
+                    logging.error(f"-t, --threads value: {kwargs[arg]} is "
+                                  "superior to the number of logical CPU "
+                                  f"cores: {n}")
+                    sys.exit(1)
+                    
+            if arg == "mem":
+                mem_tot = bytes2human(psutil.virtual_memory().total)
+                if float(kwargs[arg][:-1]) > float(mem_tot[:-1]):
+                    logging.error(f"-m, --mem value: {kwargs[arg]} is "
+                                  f"superior to the RAM of the system: {mem_tot}")
+                    sys.exit(1)
+        
+        if arg == "outdir":
+            outdir = Path(kwargs[arg]).absolute()
+            if not outdir.exists():
+                outdir.mkdir()
+                logging.info(f"'{outdir}' was created")
+                
+    return outdir
+
 ##########
 ## MAIN ##
 ##########
@@ -235,3 +265,5 @@ if __name__ == "__main__":
     db_path,yml = read_yaml_config(Path(args.config))
     check_db_path(db_path, args.config)
     module, slurm, parallel = check_config_options(yml, db_path)
+    outdir = check_general_options(slurm, threads=args.threads, mem=args.mem,
+                                   outdir=args.outdir)
