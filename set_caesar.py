@@ -62,7 +62,7 @@ def check_db_path(db_path, config_file):
                               f"config file: '{config_file}'")
                 sys.exit(1)
                 
-    logging.info("All the paths are valid")
+    logging.info("All paths are valid")
     
 def check_config_options(yml, db_path):
     
@@ -116,6 +116,25 @@ def check_config_options(yml, db_path):
                                 f" field. Expected words are: {expected}")
                 
     return module, slurm, parallel
+
+def check_required_inputs(**kwargs):
+    
+    logging.info("Checking the required inputs")
+    
+    list_path = []
+    
+    for arg in kwargs:
+        p = Path(kwargs[arg])
+        
+        if not p.exists():
+            logging.error(f"'{p}' was not found")
+            sys.exit(1)
+        
+        list_path.append(p)
+    
+    logging.info("All files are valid")
+    
+    return list_path
 
 ##########
 ## MAIN ##
@@ -209,6 +228,9 @@ if __name__ == "__main__":
                               " of proteins ids not to be selected as candidates")
     
     args = parser.parse_args()
+    
+    config_file, query_file = check_required_inputs(config=args.config,
+                                                    query=args.query)
     
     db_path,yml = read_yaml_config(Path(args.config))
     check_db_path(db_path, args.config)
