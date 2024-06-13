@@ -320,6 +320,68 @@ def check_clustering_options(pid, cov):
     elif cov > 100:
         logging.error(f"--cluster-cov must be lower than 100 but '{cov}' is given")
         sys.exit(1)
+        
+def set_candidate_selection(slurm, args):
+    
+    # Path to the candidate_selection.py script
+    main_path = Path(__file__).absolute()
+    parent_path = main_path.parent
+    src_path = parent_path / "src" / "candidate_selection.py"
+    
+    # Set the directory paths
+    blastp_dir = Path(args.outdir).absolute() / "blastp"
+    filtered_dir = Path(args.outdir).absolute() / "filtered"
+    clusters_dir = Path(args.outdir).absolute() / "clusters"
+
+    # Checks the blastp options
+    gc = args.gc
+    n = args.nb_cand
+    cov_per_cluster = args.cov_per_cluster
+    
+    text = "# Candidate Selection\n"
+    
+    if slurm is True:
+        pass
+    else:
+        text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
+        text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
+        text += f"{clusters_dir} --sources {filtered_dir}/sources.txt "
+        text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc} -n {n}\n\n"
+        
+    return text
+
+def check_candidate_selection_options(gc, n, cov_per_cluster):
+    
+    if gc < 0:
+        logging.error(f"--cov-per-cluster must be greater than 0 but"
+                      f"'{cov_per_cluster}' is given")
+        sys.exit(1)
+    elif gc < 1:
+        logging.warning(f"--cov-per-cluster value: '{cov_per_cluster}' is "
+                        "ambiguous, multiply it by 100 if you don't want a "
+                        "percentage less than 1%")
+    elif gc > 100:
+        logging.error(f"--cov-per-cluster must be lower than 100 but "
+                      f"'{cov_per_cluster}' is given")
+        sys.exit(1)
+        
+    if cov_per_cluster < 0:
+        logging.error(f"--cov-per-cluster must be greater than 0 but "
+                      f"'{cov_per_cluster}' is given")
+        sys.exit(1)
+    elif cov_per_cluster < 1:
+        logging.warning(f"--cov-per-cluster value: '{cov_per_cluster}' is "
+                        "ambiguous, multiply it by 100 if you don't want a "
+                        "percentage less than 1%")
+    elif cov_per_cluster > 100:
+        logging.error(f"--cov-per-cluster must be lower than 100 but "
+                      f"'{cov_per_cluster}' is given")
+        sys.exit(1)
+
+    if n < 1:
+        logging.error(f"-n, --nb-cand must be greater oe equal than 1 but "
+                      f"{n} is given")
+        sys.exit(1)
 
 ##########
 ## MAIN ##
@@ -439,4 +501,6 @@ if __name__ == "__main__":
     if args.start in  ["blastp", "filter", "clustering"]:
         caesar_text += set_clustering(slurm, args)
     
-    print(caesar_text)
+    if args.start in  ["blastp", "filter", "clustering", "selection"]:
+        caesar_text += set_candidate_selection(slurm, args)
+    
