@@ -53,7 +53,10 @@ def check_db_path(db_path, config_file):
         sys.exit(1)
     
     for db_name in db_path:
+        dmnd = False
         for db_type in db_path[db_name]:
+            if db_type == "dmnd":
+                dmnd = True
             if db_path[db_name][db_type] is None:
                 logging.error(f"The key '{db_type}' of the '{db_name}_db' field "
                               f"in the config file: '{config_file}' is empty")
@@ -64,6 +67,10 @@ def check_db_path(db_path, config_file):
                 logging.error(f"'{db_file}' was not found, please check your "
                               f"config file: '{config_file}'")
                 sys.exit(1)
+
+        if dmnd is False:
+            logging.error(f"No diamond database provided for '{db_name}_db' field")
+            sys.exit(1)
                 
     logging.info("All paths are valid")
     
@@ -75,20 +82,20 @@ def check_config_options(yml, db_path):
     sel_priority = yml.get("candidate_selection")
     
     if slurm == 1:
-        logging.info("slurm option is set to 1: adapt the output "
+        logging.info("slurm option is set to '1': adapt the output "
                      "script to the slurm jobs scheduler")
         slurm = True
     else:
-        logging.info("slurm option is set to 0: no adaption to the slurm"
+        logging.info("slurm option is set to '0': no adaption to the slurm"
                      " jobs scheduler")
         slurm = False
         
     if parallel == 1:
-        logging.info("parallel option is set to 1: uses gnu parallel to run "
+        logging.info("parallel option is set to '1': uses gnu parallel to run "
                      "two blastp in parallel")
         parallel = True
     else:
-        logging.info("parallel option is set to 0: runs blastp in sequence")
+        logging.info("parallel option is set to '0': runs blastp in sequence")
         parallel = False
     
     if module is None:
@@ -139,32 +146,83 @@ def check_required_inputs(**kwargs):
     
     return list_path
 
-def check_general_options(slurm, **kwargs):
+def check_general_options(slurm, threads, mem, outdir):
     
-    for arg in kwargs:
-        if slurm is False:
-            if arg == "threads":
-                n = os.cpu_count()
-                if kwargs[arg] > n:
-                    logging.error(f"-t, --threads value: {kwargs[arg]} is "
-                                  "superior to the number of logical CPU "
-                                  f"cores: {n}")
-                    sys.exit(1)
-                    
-            if arg == "mem":
-                mem_tot = bytes2human(psutil.virtual_memory().total)
-                if float(kwargs[arg][:-1]) > float(mem_tot[:-1]):
-                    logging.error(f"-m, --mem value: {kwargs[arg]} is "
-                                  f"superior to the RAM of the system: {mem_tot}")
-                    sys.exit(1)
+    if slurm is False:
+        n = os.cpu_count()
+        if threads > n:
+            logging.error(f"-t, --threads value: '{threads}' is superior to the "
+                          f"number of logical CPU cores: '{n}'")
+            sys.exit(1)
+
+        mem_tot = bytes2human(psutil.virtual_memory().total)
+        if float(mem[:-1]) > float(mem_tot[:-1]):
+            logging.error(f"-m, --mem value: '{mem}' is superior to the "
+                          f"RAM of the system: '{mem_tot}'")
+            sys.exit(1)
         
-        if arg == "outdir":
-            outdir = Path(kwargs[arg]).absolute()
-            if not outdir.exists():
-                outdir.mkdir()
-                logging.info(f"'{outdir}' was created")
+
+    outdir = Path(outdir).absolute()
+    if not outdir.exists():
+        outdir.mkdir()
+        logging.info(f"'{outdir}' was created")
                 
     return outdir
+
+def blastp(slurm, parallel, args, db_path):
+    
+    pid = args.blast_id
+    cov = args.blast_cov
+    min_len = args.min_len
+    max_len = args.max_len
+    tax = args.tax
+    
+    check_blastp_options(pid, cov, min_len, max_len, tax)
+    
+    dmnd = []
+    for db in db_path:
+        dmnd.append(db_path[db]["dmnd"])
+        
+    dmnd = " ".join(dmnd)
+
+def check_blastp_options(pid, cov, min_len, max_len, tax):
+    
+    if pid < 0:
+        logging.error(f"--blast-id must be greater than 0 but '{pid}' is given")
+        sys.exit(1)
+    elif pid < 1:
+        logging.warning(f"--blast-id value: '{pid}' is ambiguous, multiply it "
+                        "by 100 if you don't want a percentage less than 1%")
+    elif pid > 100:
+        logging.error(f"--blast-id must be lower than 100 but '{pid}' is given")
+        sys.exit(1)
+    
+    if cov < 0:
+        logging.error(f"--blast-cov must be greater than 0 but '{cov}' is given")
+        sys.exit(1)
+    elif cov < 1:
+        logging.warning(f"--blast-cov value: '{cov}' is ambiguous, multiply it "
+                        "by 100 if you don't want a percentage less than 1%")
+    elif cov > 100:
+        logging.error(f"--blast-cov must be lower than 100 but '{cov}' is given")
+        sys.exit(1)
+        
+    if min_len < 0:
+        logging.error(f"--min-len must be a positive number but '{min_len}' "
+                      "is given")
+        sys.exit(1)
+    elif min_len > max_len:
+        min_len, max_len = max_len, min_len
+        logging.warning(f"--min-len value: '{min_len}' is greater than --max-len"
+                        f" value: '{max_len}', so the values are swapped")
+    if max_len < 0:
+        logging.error(f"--max-len must be a positive number but '{max_len}' "
+                      "is given")
+        sys.exit(1)
+        
+    if "".join(sorted(tax)) not in ["A", "B", "E", "AB", "AE", "BE", "ABE"]:
+        logging.error(f"--tax value contains invalid characters: '{tax}', the"
+                      f" allowed characters are, A, B and E")
 
 ##########
 ## MAIN ##
@@ -267,3 +325,13 @@ if __name__ == "__main__":
     module, slurm, parallel = check_config_options(yml, db_path)
     outdir = check_general_options(slurm, threads=args.threads, mem=args.mem,
                                    outdir=args.outdir)
+    
+    caesar_text = "#!/bin/bash\n\n"
+    if module is not None:
+        for elem in module:
+            caesar_text += f"module load {elem}\n"
+        
+        caesar_text += "\n"
+        
+    if args.start == "blastp":
+        blastp(slurm, parallel, args, db_path)
