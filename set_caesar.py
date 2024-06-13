@@ -504,3 +504,6 @@ if __name__ == "__main__":
     if args.start in  ["blastp", "filter", "clustering", "selection"]:
         caesar_text += set_candidate_selection(slurm, args)
     
+    caesar_file = Path.cwd().absolute() / "run_caesar.sh"
+    caesar_file.write_text(caesar_text)
+    logging.info("To run the pipeline:\n\nbash ./run_caesar.sh")
