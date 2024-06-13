@@ -345,7 +345,7 @@ def set_candidate_selection(slurm, args):
     else:
         text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
         text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
-        text += f"{clusters_dir} --sources {filtered_dir}/sources.txt "
+        text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
         text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc} -n {n}\n\n"
         
     return text
