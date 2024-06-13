@@ -186,7 +186,7 @@ def set_blastp(slurm, parallel, args, db_path):
         
     dmnd = " ".join(dmnd)
     
-    text = "#Diamond blastp\n"
+    text = "# Diamond blastp\n"
     if slurm == 1:
         pass
     else:
@@ -259,15 +259,67 @@ def set_filter(slurm, args):
     
     check_blastp_options(pid, cov, min_len, max_len, tax)
     
+    text = "# Filter\n"
+    
     if slurm is True:
         pass
     else:
-        text = f"python {src_path} -o {filtered_dir} -c {args.config} "
+        text += f"python {src_path} -o {filtered_dir} -c {args.config} "
         text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
         text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
 
     return text
 
+def set_clustering(slurm, args):
+    
+    # Path to the clustering.sh script
+    main_path = Path(__file__).absolute()
+    parent_path = main_path.parent
+    src_path = parent_path / "src" / "clustering.sh"
+    
+    # Set the directory paths
+    blastp_dir = Path(args.outdir).absolute() / "blastp"
+    filtered_dir = Path(args.outdir).absolute() / "filtered"
+    clusters_dir = Path(args.outdir).absolute() / "clusters"
+    
+    # Checks the blastp options
+    pid = args.cluster_id
+    cov = args.cluster_cov
+    
+    check_clustering_options(pid, cov)
+    
+    text = "# Diamond clustering\n"
+    
+    if slurm is True:
+        pass
+    else:
+        text += f"bash {src_path} -o {clusters_dir} -f {filtered_dir}/filtered_"
+        text += f"sequences.fasta -i {pid} -c {cov} -t {args.threads} -m "
+        text += f"{args.mem}\n\n"
+        
+    return text
+    
+def check_clustering_options(pid, cov):
+    
+    if pid < 0:
+        logging.error(f"--cluster-id must be greater than 0 but '{pid}' is given")
+        sys.exit(1)
+    elif pid < 1:
+        logging.warning(f"--cluster-id value: '{pid}' is ambiguous, multiply it "
+                        "by 100 if you don't want a percentage less than 1%")
+    elif pid > 100:
+        logging.error(f"--cluster-id must be lower than 100 but '{pid}' is given")
+        sys.exit(1)
+    
+    if cov < 0:
+        logging.error(f"--cluster-cov must be greater than 0 but '{cov}' is given")
+        sys.exit(1)
+    elif cov < 1:
+        logging.warning(f"--cluster-cov value: '{cov}' is ambiguous, multiply it "
+                        "by 100 if you don't want a percentage less than 1%")
+    elif cov > 100:
+        logging.error(f"--cluster-cov must be lower than 100 but '{cov}' is given")
+        sys.exit(1)
 
 ##########
 ## MAIN ##
@@ -384,6 +436,7 @@ if __name__ == "__main__":
     if args.start in ["blastp", "filter"]:
         caesar_text += set_filter(slurm, args)
         
-    print()
-    print(caesar_text)
+    if args.start in  ["blastp", "filter", "clustering"]:
+        caesar_text += set_clustering(slurm, args)
     
+    print(caesar_text)
