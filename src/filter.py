@@ -370,6 +370,8 @@ if __name__ == "__main__":
     db_path, mail = read_yaml_config(config_path)
     
     outdir = Path(args.outdir).absolute()
+    if not outdir.exists():
+        outdir.mkdir()
 
     logging.info(f"selected superkingdoms: {args.tax}")
 
@@ -457,7 +459,7 @@ if __name__ == "__main__":
                     fasta += sequences.text
                 logging.info(f"{n_seq_id}/{n_seq_id}")
                 
-                for ic in ids_checked:
+                for ic in map_seq[key]:
                     blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
         
