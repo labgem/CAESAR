@@ -171,6 +171,15 @@ def check_general_options(slurm, threads, mem, outdir):
 
 def blastp(slurm, parallel, args, db_path):
     
+    # Path to the blastp.sh script
+    main_path = Path(__file__).absolute()
+    parent_path = main_path.parent
+    src_path = parent_path / "src" / "blastp.sh"
+    
+    # Set the output directory of blastp.sh
+    blastp_dir = Path(args.outdir) / "blastp"
+    
+    # Checks the blastp options
     pid = args.blast_id
     cov = args.blast_cov
     min_len = args.min_len
@@ -179,11 +188,26 @@ def blastp(slurm, parallel, args, db_path):
     
     check_blastp_options(pid, cov, min_len, max_len, tax)
     
+    # Get all diamonad database paths
     dmnd = []
     for db in db_path:
         dmnd.append(db_path[db]["dmnd"])
         
     dmnd = " ".join(dmnd)
+    
+    text = "#Diamond blastp\n"
+    if slurm == 1:
+        pass
+    else:
+        text += f"bash {src_path} -t {args.threads} -q {args.query} -o {blastp_dir}"
+        text += f" -i {pid} -c {cov} "
+        
+        if parallel is True:
+            text += f"-p {db}"
+        else:
+            text += db
+            
+    return text
 
 def check_blastp_options(pid, cov, min_len, max_len, tax):
     
@@ -334,4 +358,5 @@ if __name__ == "__main__":
         caesar_text += "\n"
         
     if args.start == "blastp":
-        blastp(slurm, parallel, args, db_path)
+        caesar_text += blastp(slurm, parallel, args, db_path)
+    
