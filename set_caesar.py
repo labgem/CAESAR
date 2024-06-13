@@ -194,9 +194,9 @@ def set_blastp(slurm, parallel, args, db_path):
         text += f" -i {args.blast_id} -c {args.blast_cov} "
         
         if parallel is True:
-            text += f"-p {db}\n\n"
+            text += f"-p {dmnd}\n\n"
         else:
-            text += db + "\n\n"
+            text += dmnd + "\n\n"
             
     return text
 
