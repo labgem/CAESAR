@@ -169,7 +169,7 @@ def check_general_options(slurm, threads, mem, outdir):
                 
     return outdir
 
-def blastp(slurm, parallel, args, db_path):
+def set_blastp(slurm, parallel, args, db_path):
     
     # Path to the blastp.sh script
     main_path = Path(__file__).absolute()
@@ -177,7 +177,7 @@ def blastp(slurm, parallel, args, db_path):
     src_path = parent_path / "src" / "blastp.sh"
     
     # Set the output directory of blastp.sh
-    blastp_dir = Path(args.outdir) / "blastp"
+    blastp_dir = Path(args.outdir).absolute() / "blastp"
     
     # Checks the blastp options
     pid = args.blast_id
@@ -203,9 +203,9 @@ def blastp(slurm, parallel, args, db_path):
         text += f" -i {pid} -c {cov} "
         
         if parallel is True:
-            text += f"-p {db}"
+            text += f"-p {db}\n\n"
         else:
-            text += db
+            text += db + "\n\n"
             
     return text
 
@@ -247,6 +247,28 @@ def check_blastp_options(pid, cov, min_len, max_len, tax):
     if "".join(sorted(tax)) not in ["A", "B", "E", "AB", "AE", "BE", "ABE"]:
         logging.error(f"--tax value contains invalid characters: '{tax}', the"
                       f" allowed characters are, A, B and E")
+
+def set_filter(slurm, args):
+    
+    # Path to the filter.py script
+    main_path = Path(__file__).absolute()
+    parent_path = main_path.parent
+    src_path = parent_path / "src" / "filter.py"
+    
+    # Set the output directory of filter.py and blastp.sh
+    blastp_dir = Path(args.outdir).absolute() / "blastp"
+    filtered_dir = Path(args.outdir).absolute() / "filtered"
+    
+    if slurm is True:
+        pass
+    else:
+        text = f"python {src_path} -o {filtered_dir} -c {args.config} "
+        text += f"-q {args.query} -d {blastp_dir} --id {args.blast_id} --cov "
+        text += f"{args.blast_cov} --min {args.min_len} --max {args.max_len} "
+        text += f"--tax {args.tax}\n\n"
+
+    return text
+
 
 ##########
 ## MAIN ##
@@ -358,5 +380,11 @@ if __name__ == "__main__":
         caesar_text += "\n"
         
     if args.start == "blastp":
-        caesar_text += blastp(slurm, parallel, args, db_path)
+        caesar_text += set_blastp(slurm, parallel, args, db_path)
+        
+    if args.start in ["blastp", "filter"]:
+        caesar_text += set_filter(slurm, args)
+        
+    print()
+    print(caesar_text)
     
