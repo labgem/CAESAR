@@ -179,15 +179,6 @@ def set_blastp(slurm, parallel, args, db_path):
     # Set the output directory of blastp.sh
     blastp_dir = Path(args.outdir).absolute() / "blastp"
     
-    # Checks the blastp options
-    pid = args.blast_id
-    cov = args.blast_cov
-    min_len = args.min_len
-    max_len = args.max_len
-    tax = args.tax
-    
-    check_blastp_options(pid, cov, min_len, max_len, tax)
-    
     # Get all diamonad database paths
     dmnd = []
     for db in db_path:
@@ -200,7 +191,7 @@ def set_blastp(slurm, parallel, args, db_path):
         pass
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {blastp_dir}"
-        text += f" -i {pid} -c {cov} "
+        text += f" -i {args.blast_id} -c {args.blast_cov} "
         
         if parallel is True:
             text += f"-p {db}\n\n"
@@ -259,13 +250,21 @@ def set_filter(slurm, args):
     blastp_dir = Path(args.outdir).absolute() / "blastp"
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     
+    # Checks the blastp options
+    pid = args.blast_id
+    cov = args.blast_cov
+    min_len = args.min_len
+    max_len = args.max_len
+    tax = args.tax
+    
+    check_blastp_options(pid, cov, min_len, max_len, tax)
+    
     if slurm is True:
         pass
     else:
         text = f"python {src_path} -o {filtered_dir} -c {args.config} "
-        text += f"-q {args.query} -d {blastp_dir} --id {args.blast_id} --cov "
-        text += f"{args.blast_cov} --min {args.min_len} --max {args.max_len} "
-        text += f"--tax {args.tax}\n\n"
+        text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
+        text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
 
     return text
 
