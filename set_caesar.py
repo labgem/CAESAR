@@ -55,8 +55,7 @@ def check_db_path(db_path, config_file):
     for db_name in db_path:
         dmnd = False
         for db_type in db_path[db_name]:
-            if db_type == "dmnd":
-                dmnd = True
+
             if db_path[db_name][db_type] is None:
                 logging.error(f"The key '{db_type}' of the '{db_name}_db' field "
                               f"in the config file: '{config_file}' is empty")
@@ -67,6 +66,15 @@ def check_db_path(db_path, config_file):
                 logging.error(f"'{db_file}' was not found, please check your "
                               f"config file: '{config_file}'")
                 sys.exit(1)
+                
+            if db_type == "dmnd":
+                dmnd = True
+                db_stem = db_file.stem
+                if db_stem != db_name:
+                    logging.error(f"The name of .dmnd file: '{db_file.name}' "
+                                  "must be the same as the name of the db field"
+                                  f": '{db_name}_db' without the _db suffix")
+                    sys.exit(1)
 
         if dmnd is False:
             logging.error(f"No diamond database provided for '{db_name}_db' field")
