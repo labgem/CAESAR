@@ -92,7 +92,7 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
             
             else:
                 seq_id = ls[2]
-                source = re.search("matches_(.+?)\\.tsv", blastp_file.name).group(1)
+                source = re.search("matches_(.+?)\\.tsv", blastp_file.name).group(1).lower()
                 
                 try:
                     map_seq[source].add(seq_id)
@@ -463,7 +463,7 @@ if __name__ == "__main__":
                     blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
         
-        elif key == "nr":
+        elif re.match("nr", key):
             map_seq[key] = list(map_seq[key])
             n_seq_id = len(map_seq[key])
             
@@ -508,7 +508,7 @@ if __name__ == "__main__":
                 blastp_filtered_lines += blastp_map[ic]
                 sources_text += f"{ic} {key}\n"
             
-        elif key == "cloaca":
+        elif re.match("cloaca", key):
             # We keep only complete gene
             # adjusts the pattern to the selected superkingdom
             if ''.join(sorted(args.tax)) in ["AB", "ABE"]:
@@ -563,7 +563,7 @@ if __name__ == "__main__":
                 
             cloaca_filtered_file.unlink()
             
-        elif key == "tara":
+        elif re.match("tara", key):
             if args.tax != "E":
                 
                 # We create a file containing all the ids to retrieve
