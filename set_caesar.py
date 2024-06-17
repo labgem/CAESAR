@@ -272,6 +272,16 @@ def set_filter(slurm, args):
     blastp_dir = Path(args.outdir).absolute() / "blastp"
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     
+    # Checks options not allowed with --start 'filter'
+    if args.start == "filter":
+        if args.fasta_cand is not None:
+            logging.error("-f, --fasta-cand option isn't allowed with --start 'filter'")
+            sys.exit(1)
+    
+        if args.sources is not None:
+            logging.error("--sources option isn't allowed with --start 'filter'")
+            sys.exit(1)
+    
     # Checks the blastp options
     pid = args.blast_id
     cov = args.blast_cov
@@ -286,9 +296,23 @@ def set_filter(slurm, args):
     if slurm is True:
         pass
     else:
-        text += f"python {src_path} -o {filtered_dir} -c {args.config} "
-        text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
-        text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
+        if args.start == "blastp":
+            text += f"python {src_path} -o {filtered_dir} -c {args.config} "
+            text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
+            text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
+        else:
+            if args.data is None:
+                logging.error("-d, --data options is required with --start 'filter'")
+                sys.exit(1)
+                
+            blastp_path = Path(args.data)
+            if not blastp_path.exists():
+                logging.error(f"-d, --data value: '{blastp_path}' was not found")
+                sys.exit(1)
+                
+            text += f"python {src_path} -o {filtered_dir} -c {args.config} "
+            text += f"-q {args.query} -d {blastp_path} --id {pid} --cov "
+            text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
 
     return text
 
