@@ -272,16 +272,6 @@ def set_filter(slurm, args):
     blastp_dir = Path(args.outdir).absolute() / "blastp"
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     
-    # Checks options not allowed with --start 'filter'
-    if args.start == "filter":
-        if args.fasta_cand is not None:
-            logging.error("-f, --fasta-cand option isn't allowed with --start 'filter'")
-            sys.exit(1)
-    
-        if args.sources is not None:
-            logging.error("--sources option isn't allowed with --start 'filter'")
-            sys.exit(1)
-    
     # Checks the blastp options
     pid = args.blast_id
     cov = args.blast_cov
@@ -300,9 +290,22 @@ def set_filter(slurm, args):
             text += f"python {src_path} -o {filtered_dir} -c {args.config} "
             text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
             text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
-        else:
+            
+        # Checks options not allowed with --start 'filter'
+        elif args.start == "filter":
+            if args.fasta_cand is not None:
+                logging.error("-f, --fasta-cand option isn't allowed with --start"
+                              " 'filter'")
+                sys.exit(1)
+        
+            if args.sources is not None:
+                logging.error("--sources option isn't allowed with --start"
+                              " 'filter'")
+                sys.exit(1)
+            
             if args.data is None:
-                logging.error("-d, --data options is required with --start 'filter'")
+                logging.error("-d, --data options is required with --start"
+                              " 'filter'")
                 sys.exit(1)
                 
             blastp_path = Path(args.data)
@@ -328,7 +331,7 @@ def set_clustering(slurm, args):
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     clusters_dir = Path(args.outdir).absolute() / "clusters"
     
-    # Checks the blastp options
+    # Checks the clustering options
     pid = args.cluster_id
     cov = args.cluster_cov
     
