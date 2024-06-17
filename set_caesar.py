@@ -187,6 +187,20 @@ def set_blastp(slurm, parallel, args, db_path):
     # Set the output directory of blastp.sh
     blastp_dir = Path(args.outdir).absolute() / "blastp"
     
+    # Checks options not allowed with --start 'blastp'
+    # This function is run only if --start == 'blastp
+    if args.data is not None:
+        logging.error("-d, --data option isn't allowed with --start 'blastp'")
+        sys.exit(1)
+    
+    if args.fasta_cand is not None:
+        logging.error("-f, --fasta-cand option isn't allowed with --start 'blastp'")
+        sys.exit(1)
+    
+    if args.sources is not None:
+        logging.error("--sources option isn't allowed with --start 'blastp'")
+        sys.exit(1)
+    
     # Get all diamonad database paths
     dmnd = []
     for db in db_path:
