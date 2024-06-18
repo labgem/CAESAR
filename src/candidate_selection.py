@@ -318,7 +318,7 @@ def read_strain_library(strain_library_path):
                     
     return strain_library
 
-def read_fasta_candidiates(fasta_file):
+def read_fasta_candidates(fasta_file):
     """Reads a multi fasta file
     
     For each sequence, a Candidate object is created
@@ -1076,7 +1076,7 @@ if __name__ == "__main__":
     strain_library = read_strain_library(strain_library_file)
     
     fasta_file = Path(args.fasta)
-    all_seq = read_fasta_candidiates(fasta_file)
+    all_seq = read_fasta_candidates(fasta_file)
     
     if args.data is not None:
         data_file = Path(args.data)
