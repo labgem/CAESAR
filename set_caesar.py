@@ -200,6 +200,10 @@ def set_blastp(slurm, parallel, args, db_path):
     if args.sources is not None:
         logging.error("--sources option isn't allowed with --start 'blastp'")
         sys.exit(1)
+        
+    if args.clusters is not None:
+        logging.error("--clusters option isn't allowed with --start 'blastp'")
+        sys.exit(1)
     
     # Get all diamonad database paths
     dmnd = []
@@ -307,8 +311,13 @@ def set_filter(slurm, args):
                 logging.error("-d, --data options is required with --start"
                               " 'filter'")
                 sys.exit(1)
-                
-            blastp_path = Path(args.data)
+            
+            if args.clusters is not None:
+                logging.error("--clusters option isn't allowed with --start"
+                              " 'filter'")
+                sys.exit(1)
+            
+            blastp_path = Path(args.data).absolute()
             if not blastp_path.exists():
                 logging.error(f"-d, --data value: '{blastp_path}' was not found")
                 sys.exit(1)
@@ -342,9 +351,30 @@ def set_clustering(slurm, args):
     if slurm is True:
         pass
     else:
-        text += f"bash {src_path} -o {clusters_dir} -f {filtered_dir}/filtered_"
-        text += f"sequences.fasta -i {pid} -c {cov} -t {args.threads} -m "
-        text += f"{args.mem}\n\n"
+        if args.start in ["blastp", "filter"]:
+            text += f"bash {src_path} -o {clusters_dir} -f {filtered_dir}/filtered_"
+            text += f"sequences.fasta -i {pid} -c {cov} -t {args.threads} -m "
+            text += f"{args.mem}\n\n"
+        
+        elif args.start == "clustering":
+            if args.clusters is not None:
+                logging.error("--clusters option isn't allowed with --start"
+                              " 'clustering'")
+                sys.exit(1)
+            
+            if args.fasta_cand is None:
+                logging.error("-f, --fasta-cand is required with --start"
+                              " 'clustering'")
+                sys.exit(1)
+            
+            fasta = Path(args.fasta_cand).absolute()
+            if not fasta.exists():
+                logging.error(f"-f, --fasta-cand value: '{fasta}' was not found")
+                sys.exit(1)
+                
+            text += f"bash {src_path} -o {clusters_dir} -f {fasta}"
+            text += f" -i {pid} -c {cov} -t {args.threads} -m "
+            text += f"{args.mem}\n\n"
         
     return text
     
@@ -515,6 +545,11 @@ if __name__ == "__main__":
     fasta_source.add_argument("--sources", type=str, metavar="",
                               help="Sources file indicating the sources"
                               " database of each sequences")
+    
+    cluster_tsv = parser.add_argument_group("Required if --start equals to"
+                                            " 'selection'")
+    cluster_tsv.add_argument("--clusters", type=str, metavar="", 
+                             help="clusters tsv file")
     
     exlusion_opt = parser.add_argument_group("Exclude some protein ids",
                                             "Can be used to re-run pipeline"
