@@ -422,10 +422,39 @@ def set_candidate_selection(slurm, args):
     if slurm is True:
         pass
     else:
-        text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
-        text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
-        text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
-        text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc} -n {n}\n\n"
+        # The paths have been written by the pipeline
+        if args.start in ["blastp", "filter"]:
+            text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
+            text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
+            text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
+            text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc} -n {n}\n\n"
+        
+        # All or some paths have been provided by the user
+        elif args.start == "clustering":
+            fasta = Path(args.fasta_cand).absolute()
+            
+            if args.sources is None:
+                logging.error("--sources option is required with --start clustering")
+                sys.exit(1)
+            
+            sources = Path(args.sources).absolute()
+            if not sources.is_file():
+                logging.error(f"--sources option value: '{sources}' was not found")
+                sys.exit(1)
+            
+            text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
+            text += f"{fasta} --clusters {clusters_dir}/clusters.tsv --sources "
+            text += f"{sources}  --gc {gc} -n {n}"
+        
+        if args.data is not None:
+            data = Path(args.data).absolute()
+            if not data.is_file():
+                logging.error(f"-d, -data option value: '{data}' was not found")
+                sys.exit(1)
+                
+            text += f" -d {data}\n\n"
+        
+        text += "\n\n"
         
     return text
 
