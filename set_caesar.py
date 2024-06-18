@@ -187,24 +187,6 @@ def set_blastp(slurm, parallel, args, db_path):
     # Set the output directory of blastp.sh
     blastp_dir = Path(args.outdir).absolute() / "blastp"
     
-    # Checks options not allowed with --start 'blastp'
-    # This function is run only if --start == 'blastp
-    if args.data is not None:
-        logging.error("-d, --data option isn't allowed with --start 'blastp'")
-        sys.exit(1)
-    
-    if args.fasta_cand is not None:
-        logging.error("-f, --fasta-cand option isn't allowed with --start 'blastp'")
-        sys.exit(1)
-    
-    if args.sources is not None:
-        logging.error("--sources option isn't allowed with --start 'blastp'")
-        sys.exit(1)
-        
-    if args.clusters is not None:
-        logging.error("--clusters option isn't allowed with --start 'blastp'")
-        sys.exit(1)
-    
     # Get all diamonad database paths
     dmnd = []
     for db in db_path:
@@ -297,30 +279,7 @@ def set_filter(slurm, args):
             
         # Checks options not allowed with --start 'filter'
         elif args.start == "filter":
-            if args.fasta_cand is not None:
-                logging.error("-f, --fasta-cand option isn't allowed with --start"
-                              " 'filter'")
-                sys.exit(1)
-        
-            if args.sources is not None:
-                logging.error("--sources option isn't allowed with --start"
-                              " 'filter'")
-                sys.exit(1)
-            
-            if args.data is None:
-                logging.error("-d, --data options is required with --start"
-                              " 'filter'")
-                sys.exit(1)
-            
-            if args.clusters is not None:
-                logging.error("--clusters option isn't allowed with --start"
-                              " 'filter'")
-                sys.exit(1)
-            
             blastp_path = Path(args.data).absolute()
-            if not blastp_path.exists():
-                logging.error(f"-d, --data value: '{blastp_path}' was not found")
-                sys.exit(1)
                 
             text += f"python {src_path} -o {filtered_dir} -c {args.config} "
             text += f"-q {args.query} -d {blastp_path} --id {pid} --cov "
@@ -357,20 +316,7 @@ def set_clustering(slurm, args):
             text += f"{args.mem}\n\n"
         
         elif args.start == "clustering":
-            if args.clusters is not None:
-                logging.error("--clusters option isn't allowed with --start"
-                              " 'clustering'")
-                sys.exit(1)
-            
-            if args.fasta_cand is None:
-                logging.error("-f, --fasta-cand is required with --start"
-                              " 'clustering'")
-                sys.exit(1)
-            
             fasta = Path(args.fasta_cand).absolute()
-            if not fasta.exists():
-                logging.error(f"-f, --fasta-cand value: '{fasta}' was not found")
-                sys.exit(1)
                 
             text += f"bash {src_path} -o {clusters_dir} -f {fasta}"
             text += f" -i {pid} -c {cov} -t {args.threads} -m "
@@ -432,25 +378,23 @@ def set_candidate_selection(slurm, args):
         # All or some paths have been provided by the user
         elif args.start == "clustering":
             fasta = Path(args.fasta_cand).absolute()
-            
-            if args.sources is None:
-                logging.error("--sources option is required with --start clustering")
-                sys.exit(1)
-            
             sources = Path(args.sources).absolute()
-            if not sources.is_file():
-                logging.error(f"--sources option value: '{sources}' was not found")
-                sys.exit(1)
             
             text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
             text += f"{fasta} --clusters {clusters_dir}/clusters.tsv --sources "
-            text += f"{sources}  --gc {gc} -n {n}"
+            text += f"{sources} --gc {gc} -n {n}"
+        
+        elif args.start == "selection":
+            fasta = Path(args.fasta_cand).absolute()
+            sources = Path(args.sources).absolute()
+            clusters = Path(args.clusters).absolute()
+            
+            text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
+            text += f"{fasta} --clusters {clusters} --sources {sources} --gc "
+            text += f"{gc} -n {n}"
         
         if args.data is not None:
             data = Path(args.data).absolute()
-            if not data.is_file():
-                logging.error(f"-d, -data option value: '{data}' was not found")
-                sys.exit(1)
                 
             text += f" -d {data}\n\n"
         
@@ -487,9 +431,94 @@ def check_candidate_selection_options(gc, n, cov_per_cluster):
         sys.exit(1)
 
     if n < 1:
-        logging.error(f"-n, --nb-cand must be greater oe equal than 1 but "
+        logging.error(f"-n, --nb-cand must be greater or equal than 1 but "
                       f"{n} is given")
         sys.exit(1)
+
+def checks_optional_file(args):
+    
+    start = args.start
+    
+    # -d, --data
+    # if start blastp, this option isn't allowed
+    if start == "blastp" and args.data is not None:
+        logging.error(f"-d, --data option isn't allowed with --start {start}")
+        sys.exit(1)
+    
+    # if start filter, could be a dir or a file, but it's a required option
+    if start == "filter":
+        if args.data is None:
+            logging.error(f"-d, --data is required if start {start}")
+            sys.exit(1)
+            
+        data = Path(args.data).absolute()
+        if not data.exists():
+            logging.error(f"-d, --data option value: '{data}' was not found")
+            sys.exit(1)
+            
+    # if start at the clustering or selection step, it's an optional file
+    # couldn't be a directory
+    if start in ["clustering", "selection"] and args.data is not None:
+        data = Path(args.data)
+        if not data.is_file():
+            logging.error(f"-d, --data option value: '{data}' was not found or"
+                          "isn't a file")
+            sys.exit(1) 
+    
+    # -f, --fasta-cand
+    # if start at the blastp or filter step, this option isn't allowed
+    if start in ["blastp", "filter"] and args.fasta_cand is not None:
+        logging.error(f"-d, --data option isn't allowed with --start {start}")
+        sys.exit(1)
+        
+    # if start at the clustering or selection step, it's a required file
+    if args.start in ["clustering", "selection"]:
+        if args.fasta_cand is None:
+            logging.error(f"-f, --fasta-cand is required if start {start}")
+            sys.exit(1)
+            
+        fasta = Path(args.fasta_cand)
+        if not fasta.is_file():
+            logging.error(f"-f, --fasta-cand option value: '{fasta}' was not "
+                          "found or isn't a file")
+            sys.exit(1)
+    
+    # --sources
+    # if start at the blastp or filter step, this option isn't allowed
+    if start in ["blastp", "filter"] and args.sources is not None:
+        logging.error(f"--sources option isn't allowed with --start {start}")
+        sys.exit(1)
+    
+    # if start at the clustering or selection step, it's a required file
+    if args.start in ["clustering", "selection"]:
+        if args.sources is None:
+            logging.error(f"--sources is required if start {start}")
+            sys.exit(1)
+            
+        sources = Path(args.sources)
+        if not sources.is_file():
+            logging.error(f"--sources option value: '{sources}' was not "
+                          "found or isn't a file")
+            sys.exit(1)
+    
+    # --clusters
+    # if start at the blastp, filter or clustering step, this option isn't allowed
+    if start in ["blastp", "filter", "clustering"] and args.clusters is not None:
+        logging.error(f"--clusters option isn't allowed with --start {start}")
+        sys.exit(1)
+
+    # if start at the selection step, it's a required file
+    if start == "selection":
+        if args.clusters is None:
+            logging.error(f"--clusters is required if start {start}")
+            sys.exit(1)
+            
+        clusters = Path(args.clusters)
+        if not clusters.is_file():
+            logging.error(f"--clusters option value: '{clusters}' was not "
+                          "found or isn't a file")
+            sys.exit(1)
+    
 
 ##########
 ## MAIN ##
@@ -597,6 +626,8 @@ if __name__ == "__main__":
     module, slurm, parallel = check_config_options(yml, db_path)
     outdir = check_general_options(slurm, threads=args.threads, mem=args.mem,
                                    outdir=args.outdir)
+    
+    checks_optional_file(args)
     
     caesar_text = "#!/bin/bash\n\n"
     if module is not None:
