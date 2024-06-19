@@ -373,33 +373,37 @@ def set_candidate_selection(slurm, args):
             text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
             text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
             text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
-            text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc} -n {n}\n\n"
+            text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc}"
         
         # All or some paths have been provided by the user
-        elif args.start == "clustering":
-            fasta = Path(args.fasta_cand).absolute()
-            sources = Path(args.sources).absolute()
-            
-            text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
-            text += f"{fasta} --clusters {clusters_dir}/clusters.tsv --sources "
-            text += f"{sources} --gc {gc} -n {n}"
-        
-        elif args.start == "selection":
-            fasta = Path(args.fasta_cand).absolute()
-            sources = Path(args.sources).absolute()
-            clusters = Path(args.clusters).absolute()
-            
-            text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
-            text += f"{fasta} --clusters {clusters} --sources {sources} --gc "
-            text += f"{gc} -n {n}"
-        
-        if args.data is not None:
-            data = Path(args.data).absolute()
+        else:
+            if args.start == "clustering":
+                fasta = Path(args.fasta_cand).absolute()
+                sources = Path(args.sources).absolute()
                 
-            text += f" -d {data}\n\n"
+                text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
+                text += f"{fasta} --clusters {clusters_dir}/clusters.tsv --sources "
+                text += f"{sources} --gc {gc}"
+            
+            elif args.start == "selection":
+                fasta = Path(args.fasta_cand).absolute()
+                sources = Path(args.sources).absolute()
+                clusters = Path(args.clusters).absolute()
+                
+                text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
+                text += f"{fasta} --clusters {clusters} --sources {sources} --gc "
+                text += f"{gc}"
+            
+            if args.data is not None and Path(args.data).is_file():
+                data = Path(args.data).absolute()
+                    
+                text += f" -d {data} "
         
-        text += "\n\n"
-        
+        if cov_per_cluster is None:
+            text += f" -n {n}\n\n"
+        else:
+            text += f" --cov-per-cluster {cov_per_cluster}\n\n"
+   
     return text
 
 def check_candidate_selection_options(gc, n, cov_per_cluster):
