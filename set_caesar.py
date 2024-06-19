@@ -400,9 +400,15 @@ def set_candidate_selection(slurm, args):
                 text += f" -d {data} "
         
         if cov_per_cluster is None:
-            text += f" -n {n}\n\n"
+            text += f" -n {n}"
         else:
-            text += f" --cov-per-cluster {cov_per_cluster}\n\n"
+            text += f" --cov-per-cluster {cov_per_cluster}"
+            
+        if args.update is not None:
+            update = Path(args.update).absolute()
+            text += f" --update {update}\n\n"
+        else:
+            text += "\n\n"
    
     return text
 
@@ -523,6 +529,12 @@ def checks_optional_file(args):
                           "found or isn't a file")
             sys.exit(1)
     
+    if args.update is not None:
+        update = Path(args.update).absolute()
+        if not update.is_file():
+            logging.error(f"-u, --update option value: '{update}' was not found"
+                          " or isn't a file")
+            sys.exit(1)
 
 ##########
 ## MAIN ##
