@@ -7,6 +7,7 @@ import logging
 import re
 import requests
 import time
+import urllib
 import yaml
 from Bio import Entrez
 from collections import Counter
@@ -405,6 +406,9 @@ def get_query_information(all_seq, data_file):
                 seq_id = re.search("\\|(\\w+)\\|", split_line[2]).group(1)
             else:
                 seq_id = split_line[2]
+            
+            if seq_id == "A0A7L4X2M8":
+                print(line)
             
             if all_seq[seq_id].query is None:
                 
@@ -1148,13 +1152,20 @@ if __name__ == "__main__":
             
             # iterates over results as soon they are completed
             for future in as_completed(futures):
-                updated_candidate = future.result()
-                all_seq.update(updated_candidate)
-                i += 200
-                if i <= n_seq_id:
-                    logging.info(f"{i}/{n_seq_id}")
-                else:
-                    logging.info(f"{n_seq_id}/{n_seq_id}")
+                try:
+                    updated_candidate = future.result()
+                    all_seq.update(updated_candidate)
+                    i += 200
+                    if i <= n_seq_id:
+                        logging.info(f"{i}/{n_seq_id}")
+                    else:
+                        logging.info(f"{n_seq_id}/{n_seq_id}")
+                except urllib.error.HTTPError as err:
+                    i += 200
+                    if i <= n_seq_id:
+                        logging.error(f"{i}/{n_seq_id} {err}")
+                    else:
+                        logging.error(f"{n_seq_id}/{n_seq_id} {err}")
         
         logging.info("done")
         del data
