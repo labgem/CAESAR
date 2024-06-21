@@ -229,9 +229,9 @@ def read_clusters(cluster_file, exclude_cand):
     for clust in exclude_cluster:
         del clusters[clust]
     
-    return clusters
+    return clusters, exclude_cluster
 
-def max_candidate_per_cluster(clusters, value):
+def max_candidate_per_cluster(clusters, value, exclude_cluster):
     """Defines the maximum number of candidate to selection per cluster
 
     Args:
@@ -247,9 +247,23 @@ def max_candidate_per_cluster(clusters, value):
     """
     
     max_cand = {}
+    sum_len = 0
+    nb_singleton = 0
+    max_len = 0
+    max_name = ""
+    L = len(clusters)
     
     if isinstance(value, int):
         max_cand = {k:value for k in clusters}
+        for clust in clusters:
+            max_cand[clust] = value
+            l = len(clusters[clust])
+            sum_len += l
+            if l == 1:
+                nb_singleton += 1
+            elif l > max_len:
+                max_len = l
+                max_name = clust
     
     elif isinstance(value, float):
         for clust in clusters:
@@ -262,6 +276,19 @@ def max_candidate_per_cluster(clusters, value):
     else:
         raise TypeError(f"'value' should be an int or a float not a: {type(value)}")
     
+    mean_len = round(sum_len / L, 1)
+    p_singleton = round((nb_singleton / L) * 100, 1)
+    
+    logging.info(f"Clusters Statistics")
+    logging.info(f"Number of clusters: {L}")
+    logging.info(f"Number of singleton (1 sequence): {nb_singleton}")
+    logging.info(f"Proportion of singleton: {p_singleton}")
+    logging.info(f"Largest cluster: {max_name} size: {max_len}")
+    logging.info(f"Mean cluster size: {mean_len}")
+    if len(exclude_cluster) != 0:
+        exclude_str = '\n'.join(exclude_cluster)
+        logging.info(f"List of excluded clusters due to the --update option:"
+                     f"\n{exclude_str}")
     return max_cand
 
 def read_sources_file(sources_file):
@@ -1066,12 +1093,14 @@ if __name__ == "__main__":
     else:
         exclude_cand = set()
     cluster_file = Path(args.clusters)
-    clusters = read_clusters(cluster_file, exclude_cand)
+    clusters, exclude_cluster = read_clusters(cluster_file, exclude_cand)
     
     if args.cov_per_cluster is not None:
-        max_cand = max_candidate_per_cluster(clusters, args.cov_per_cluster)
+        max_cand = max_candidate_per_cluster(clusters, args.cov_per_cluster,
+                                             exclude_cluster)
     else:
-        max_cand = max_candidate_per_cluster(clusters, args.nb_cand)
+        max_cand = max_candidate_per_cluster(clusters, args.nb_cand,
+                                             exclude_cluster)
     
     sources_file = Path(args.sources)
     sources = read_sources_file(sources_file)
@@ -1161,6 +1190,7 @@ if __name__ == "__main__":
                     else:
                         logging.info(f"{n_seq_id}/{n_seq_id}")
                 except urllib.error.HTTPError as err:
+                    time.sleep(0.5)
                     i += 200
                     if i <= n_seq_id:
                         logging.error(f"{i}/{n_seq_id} {err}")
