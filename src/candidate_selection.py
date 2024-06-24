@@ -901,7 +901,7 @@ def select_candidate(presel, all_cand, yml, sources_db, max_cand):
         
     return selected_cand_per_clust
 
-def write_results(selected_cand_per_clust, all_cand, outdir):
+def write_results(selected_cand_per_clust, clusters, all_cand, outdir):
     """Writes the outputs
 
     Args:
@@ -923,6 +923,7 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
             continue
         
         for cand in selected_cand_per_clust[cluster]:
+            n_cluster = len(clusters[cluster])
             name = cand[0]  # sequence id
             category = cand[1]  # category/type of selection, e.g : tax_id, home_strain...
             os = all_cand[name].os  # organisme name
@@ -954,7 +955,7 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
                 sl_resource = None
                 sl_resource_id = None
             
-            line = f"{cluster}\t{name}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
+            line = f"{cluster}\t{n_cluster}\t{name}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
             line += f"{query_name}\t{pident}\t{qcovhsp}\t{positives}\t"
             line += f"{mismatch}\t{gaps}\t{e_value}\t{category}\t"
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
@@ -990,7 +991,7 @@ def write_results(selected_cand_per_clust, all_cand, outdir):
         
         table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
         
-        header = "Cluster\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
+        header = "Cluster\tCluster_size\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
         header += "GC\tQuery\tid\tcov\tpositives\tmismatch\tgaps\te-value\t"
         header += "Selection_type\tStrain_library_organism\tStrain_library_tax_id\t"
         header += "Collection\tCollection_id\n"
@@ -1245,7 +1246,7 @@ if __name__ == "__main__":
                                                db_path,
                                                max_cand)
     
-    write_results(selected_cand_per_clust, all_seq, outdir)
+    write_results(selected_cand_per_clust, clusters, all_seq, outdir)
     
     if "mda" in strain_library:
         add_mda(outdir, strain_library)
