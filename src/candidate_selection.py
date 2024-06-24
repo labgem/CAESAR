@@ -248,6 +248,7 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
     
     max_cand = {}
     sum_len = 0
+    sum_without_singleton = 0
     nb_singleton = 0
     max_len = 0
     max_name = ""
@@ -261,9 +262,11 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
             sum_len += l
             if l == 1:
                 nb_singleton += 1
-            elif l > max_len:
-                max_len = l
-                max_name = clust
+            else:
+                sum_without_singleton += l
+                if l > max_len:
+                    max_len = l
+                    max_name = clust
     
     elif isinstance(value, float):
         for clust in clusters:
@@ -277,6 +280,7 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
         raise TypeError(f"'value' should be an int or a float not a: {type(value)}")
     
     mean_len = round(sum_len / L, 1)
+    mean_without_singleton = round((sum_without_singleton / (L - nb_singleton)),1)
     p_singleton = round((nb_singleton / L) * 100, 1)
     
     logging.info(f"Clusters Statistics")
@@ -284,7 +288,8 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
     logging.info(f"Number of singleton (1 sequence): {nb_singleton}")
     logging.info(f"Proportion of singleton: {p_singleton}")
     logging.info(f"Largest cluster: {max_name} size: {max_len}")
-    logging.info(f"Mean cluster size: {mean_len}")
+    logging.info(f"Mean cluster size with singleton: {mean_len}")
+    logging.info(f"Mean cluster size without singleton: {mean_without_singleton}")
     if len(exclude_cluster) != 0:
         exclude_str = '\n'.join(exclude_cluster)
         logging.info(f"List of excluded clusters due to the --update option:"
