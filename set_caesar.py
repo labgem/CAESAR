@@ -281,20 +281,34 @@ def set_filter(slurm, args):
     text = "# Filter\n"
     
     if slurm is True:
-        pass
-    else:
+        sh_path = src_path.parent / "filter.sh"
+        
         if args.start == "blastp":
-            text += f"python {src_path} -o {filtered_dir} -c {args.config} "
-            text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
-            text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
-            
-        # Checks options not allowed with --start 'filter'
+            text += r"job_filter=$(sbatch --dependency=afterok:${id_blastp} "
+            text += r"--nodes 1 -c 1 -t 360 -J caesar_filtering -o %x_%j.log "
+            text += f"--mem=4G {sh_path} {src_path} -o {filtered_dir} "
+            text += f"-C {args.config} -q {args.query} -d {blastp_dir} "
+        
         elif args.start == "filter":
             blastp_path = Path(args.data).absolute()
-                
-            text += f"python {src_path} -o {filtered_dir} -c {args.config} "
+            text += r"job_filter=$(sbatch "
+            text += r"--nodes 1 -c 1 -t 360 -J caesar_filtering -o %x_%j.log "
+            text += f"--mem=4G {sh_path} {src_path} -o {filtered_dir} " 
+            text += f"-C {args.config} -q {args.query} -d {blastp_path} "
+            
+        text += f"-i {pid} -c {cov} -l {min_len} -L {max_len} -t {tax})\n"
+        text += "id_filter=$(echo $job_filter | grep -oE '[0-9]+')\n\n"
+        
+    else:
+        text += f"python {src_path} -o {filtered_dir} -c {args.config} "
+        if args.start == "blastp":
+            text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
+            
+        elif args.start == "filter":
+            blastp_path = Path(args.data).absolute()    
             text += f"-q {args.query} -d {blastp_path} --id {pid} --cov "
-            text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
+            
+        text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
 
     return text
 
