@@ -405,7 +405,50 @@ def set_candidate_selection(slurm, args):
     text = "# Candidate Selection\n"
     
     if slurm is True:
-        pass
+        sh_path = src_path.parent / "candidate_selection.sh"
+        
+        if args.start in ["blastp", "filter"]:
+            text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
+            text += f"--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+            text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
+            text += f" -f {filtered_dir}/filtered_sequences.fasta -c {clusters_dir}"
+            text += f"/clusters.tsv -s {filtered_dir}/sources.txt -d {filtered_dir}"
+            text += f"/filtered_data.tsv -g {gc}"
+            
+        else:
+            fasta = Path(args.fasta_cand).absolute()
+            sources = Path(args.sources).absolute()
+            
+            if args.start == "clustering":
+                text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
+                text += f"--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+                text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
+                text += f" -f {fasta} -c {clusters_dir}/clusters.tsv -s {sources}"
+                text += f" -g {gc}"
+                
+            elif args.start == "selection":
+                text += r"job_selection=$(sbatch "
+                text += f"--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+                text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
+                clusters = Path(args.clusters).absolute()
+                text += f" -f {fasta} -c {clusters} -s {sources} -g {gc}"
+                
+            if args.data is not None and Path(args.data).is_file():
+                data = Path(args.data).absolute()
+                
+                text += f" -d {data}"
+                
+        if cov_per_cluster is None:
+            text += f" -n {n}"
+        else:
+            text += f" -v {cov_per_cluster}"
+            
+        if args.update is not None:
+            update = Path(args.update).absolute()
+            text += f"-u {update}"
+            
+        text += ")\n\n"
+        
     else:
         # The paths have been written by the pipeline
         if args.start in ["blastp", "filter"]:
@@ -416,17 +459,16 @@ def set_candidate_selection(slurm, args):
         
         # All or some paths have been provided by the user
         else:
+            fasta = Path(args.fasta_cand).absolute()
+            sources = Path(args.sources).absolute()
+            
             if args.start == "clustering":
-                fasta = Path(args.fasta_cand).absolute()
-                sources = Path(args.sources).absolute()
                 
                 text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
                 text += f"{fasta} --clusters {clusters_dir}/clusters.tsv --sources "
                 text += f"{sources} --gc {gc}"
             
             elif args.start == "selection":
-                fasta = Path(args.fasta_cand).absolute()
-                sources = Path(args.sources).absolute()
                 clusters = Path(args.clusters).absolute()
                 
                 text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
