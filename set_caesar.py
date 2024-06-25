@@ -333,7 +333,21 @@ def set_clustering(slurm, args):
     text = "# Diamond clustering\n"
     
     if slurm is True:
-        pass
+        if args.start in ["blastp", "filter"]:
+            text += r"job_clustering=$(sbatch --dependency=afterok:${id_filter}"
+            text += f" --nodes 1 -c {args.threads} -t 360 --mem={args.mem} "
+            text += f"-J caesar_clustering -o %x_%j.log {src_path} -o "
+            text += f"{clusters_dir} -f {filtered_dir}/filtered_sequences.fasta"
+            
+        elif args.start == "clustering":
+            fasta = Path(args.fasta_cand).absolute()
+            text += f"job_clustering=$(sbatch --nodes 1 -c {args.threads} -t 360"
+            text += f" --mem={args.mem} -J caesar_clustering -o %x_%j.log "
+            text += f"{src_path} -o {clusters_dir} -f {fasta} "
+        
+        text += f" -i {pid} -c {cov} -t {args.threads} -m {args.mem})\n"
+        text += "id_clustering=$(echo $job_clustering | grep -oE '[0-9]+')\n\n"
+        
     else:
         if args.start in ["blastp", "filter"]:
             text += f"bash {src_path} -o {clusters_dir} -f {filtered_dir}/filtered_"
