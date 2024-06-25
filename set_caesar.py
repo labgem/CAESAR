@@ -196,7 +196,18 @@ def set_blastp(slurm, parallel, args, db_path):
     
     text = "# Diamond blastp\n"
     if slurm == 1:
-        pass
+        text += f"job_blastp=$(sbatch --nodes 1 -c {args.threads} -t 1440"
+        text += f" -J caesar_blastp -o %x_%j.log --mem={args.mem} "
+        text += f"{src_path} -t {args.threads} -q {args.query} -o {blastp_dir} "
+        text += f"-i {args.blast_id} -c {args.blast_cov} "
+        
+        if parallel is True:
+            text += f"-p {dmnd})\n"
+        else:
+            text += f"{dmnd})\n"
+        
+        text += "id_blastp=$(echo $job_blastp | grep -oE '[0-9]+')\n\n"
+        
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {blastp_dir}"
         text += f" -i {args.blast_id} -c {args.blast_cov} "
