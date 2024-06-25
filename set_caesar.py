@@ -409,7 +409,7 @@ def set_candidate_selection(slurm, args):
         
         if args.start in ["blastp", "filter"]:
             text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
-            text += f"--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+            text += f" --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
             text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
             text += f" -f {filtered_dir}/filtered_sequences.fasta -c {clusters_dir}"
             text += f"/clusters.tsv -s {filtered_dir}/sources.txt -d {filtered_dir}"
@@ -421,7 +421,7 @@ def set_candidate_selection(slurm, args):
             
             if args.start == "clustering":
                 text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
-                text += f"--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+                text += f" --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
                 text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
                 text += f" -f {fasta} -c {clusters_dir}/clusters.tsv -s {sources}"
                 text += f" -g {gc}"
