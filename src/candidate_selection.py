@@ -762,7 +762,7 @@ def read_cds_na(handle, all_seq, uniprot_cds_map, target_gc):
     
     for fasta in handle.read().split(">")[1:]:
         try:
-            protein_id = re.search("cds_([^\\s_]+)", fasta).group(1)
+            protein_id = re.search("cds_([^\\s]+)", fasta).group(1)
         except:
             continue
         
