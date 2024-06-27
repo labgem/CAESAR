@@ -3,10 +3,12 @@
 #############
 
 import argparse
+import datetime
 import logging
 import re
 import requests
 import time
+import traceback
 import urllib
 import yaml
 from Bio import Entrez
@@ -762,7 +764,7 @@ def read_cds_na(handle, all_seq, uniprot_cds_map, target_gc):
     
     for fasta in handle.read().split(">")[1:]:
         try:
-            protein_id = re.search("cds_([^\\s]+)", fasta).group(1)
+            protein_id = re.search("protein_id=([^\\s]+)\\]", fasta).group(1)
         except:
             continue
         
@@ -781,7 +783,10 @@ def read_cds_na(handle, all_seq, uniprot_cds_map, target_gc):
             except ZeroDivisionError:
                 continue
         else:
-            protein_header = all_seq[protein_id].protein_fasta.split("\n")[0]
+            try:
+                protein_header = all_seq[protein_id].protein_fasta.split("\n")[0]
+            except Exception as err:
+                raise err
             nucleic_fasta = re.sub("^(.+?)\n", protein_header+"\n", fasta)
             all_seq[protein_id].update_nucleic_fasta(nucleic_fasta)
             all_seq[protein_id].set_cds_id(protein_id)
@@ -809,7 +814,10 @@ def worker(data):
     target_gc = data[4]
     
     handle = efecth_fasta_cds_na(query, mail)
-    all_seq = read_cds_na(handle, all_seq, uniprot_cds_map, target_gc)
+    try:
+        all_seq = read_cds_na(handle, all_seq, uniprot_cds_map, target_gc)
+    except Exception as err:
+        raise err
     
     return all_seq
 
@@ -1090,6 +1098,8 @@ if __name__ == "__main__":
     
     outdir = Path(args.outdir)
     
+    start = datetime.datetime.now()
+    
     config_path = Path(args.config)
     db_path, yml = read_yaml_config(config_path)
     
@@ -1122,8 +1132,12 @@ if __name__ == "__main__":
     
         all_seq, ref_candidate_count = get_query_information(all_seq, data_file)
 
+    logging.info("Preselect candidate based on strain library")
+    start_presel = datetime.datetime.now()
     presel, finded, not_finded = preselect_candidates(all_seq, clusters,
                                                       sources, strain_library)
+    end = datetime.datetime.now()
+    logging.info(f"elapsed time: {end - start_presel}")
 
     for cand in not_finded:
         del all_seq[cand]
@@ -1138,6 +1152,7 @@ if __name__ == "__main__":
     # Uniprot ID Mapping Tool
     if "uniprot" in finded:
         logging.info("Uniprot ID Mapping Tool")
+        start_mapping = datetime.datetime.now()
         if len(finded["uniprot"]) > 100_000:
             finded["uniprot"] = list(finded["uniprot"])
             for i in range(len(finded["uniprot"]), 100_000):
@@ -1153,7 +1168,8 @@ if __name__ == "__main__":
             uniprot_cds_map.update(cds_map)
             finded["nr"].update(set(cds_map.keys()))
     
-    logging.info("done")
+    end = datetime.datetime.now()
+    logging.info(f"elapsed time: {end - start_mapping}")
     
     # NCBI Entrez to retrieves nucleic sequences
     if "nr" in finded:
@@ -1171,10 +1187,10 @@ if __name__ == "__main__":
                 if k in query:
                     query_cand[v] = all_seq[v]
                     query_map_cds[k] = v
-
             data.append((query, yml["mail"], query_map_cds, query_cand, args.gc))
-        
+
         logging.info(f"NCBI efetch fasta_cds_na")
+        start_efecth = datetime.datetime.now()
         with ThreadPoolExecutor(max_workers=3) as executor:
             i = 0
             logging.info(f"{i}/{n_seq_id}")
@@ -1202,8 +1218,17 @@ if __name__ == "__main__":
                         logging.error(f"{i}/{n_seq_id} {err}")
                     else:
                         logging.error(f"{n_seq_id}/{n_seq_id} {err}")
+                except Exception as err:
+                    i += 200
+                    if i <= n_seq_id:
+                        logging.error(f"{i}/{n_seq_id} An error has occured:\n"
+                                      f"{traceback.format_exc()}")
+                    else:
+                        logging.error(f"{n_seq_id}/{n_seq_id} An error has "
+                                      f"occured:\n{traceback.format_exc()}")
         
-        logging.info("done")
+        end = datetime.datetime.now()
+        logging.info(f"elapsed time: {end - start_efecth}")
         del data
     
     for key in finded:
@@ -1219,7 +1244,11 @@ if __name__ == "__main__":
         else:
             key_file_id.write_text("\n".join([s[:-2] for s in finded[key]]))
         
+        logging.info(f"run seqkit on {key} to find nucleic sequences")
+        start_seqkit = datetime.datetime.now()
         result = run_seqkit(key_file_id, db_path[key]["fna"])
+        end = datetime.datetime.now()
+        logging.info(f"elapsed time: {end - start_seqkit}")
         
         if result.returncode != 0:
             logging.info("An error has occured during seqkit process to obtain",
@@ -1240,6 +1269,8 @@ if __name__ == "__main__":
             
             key_file_id.unlink()
     
+    logging.info("Selects candidates")
+    start_selection = datetime.datetime.now()
     selected_cand_per_clust = select_candidate(presel,
                                                all_seq,
                                                yml,
@@ -1247,6 +1278,10 @@ if __name__ == "__main__":
                                                max_cand)
     
     write_results(selected_cand_per_clust, clusters, all_seq, outdir)
-    
+    end = datetime.datetime.now()
+    logging.info(f"elapsed time: {end - start_selection}")    
     if "mda" in strain_library:
         add_mda(outdir, strain_library)
+        
+    end = datetime.datetime.now()
+    logging.info(f"candidate_selection.py elapsed time: {end - start}")
