@@ -185,7 +185,7 @@ def read_update_file(update_file):
             
     return exclude_cand
 
-def read_clusters(cluster_file, exclude_cand):
+def read_clusters(cluster_file, exclude_cand, sources):
     """Reads the cluster tsv file
 
     Args:
@@ -198,6 +198,7 @@ def read_clusters(cluster_file, exclude_cand):
     """
     
     clusters = {}
+    clusters_sources = {}
     exclude_cluster = set()
     
     with open(cluster_file, "r") as f:
@@ -219,8 +220,10 @@ def read_clusters(cluster_file, exclude_cand):
             
             if ref not in clusters:
                 clusters[ref] = []
+                clusters_sources[ref] = set()
             
             clusters[ref].append(member)
+            clusters_sources[ref].add(sources[member])
             
             if ref in exclude_cand:
                 exclude_cluster.add(ref)
@@ -231,7 +234,7 @@ def read_clusters(cluster_file, exclude_cand):
     for clust in exclude_cluster:
         del clusters[clust]
     
-    return clusters, exclude_cluster
+    return clusters, clusters_sources, exclude_cluster
 
 def max_candidate_per_cluster(clusters, value, exclude_cluster):
     """Defines the maximum number of candidate to selection per cluster
@@ -909,7 +912,7 @@ def select_candidate(presel, all_cand, yml, sources_db, max_cand):
         
     return selected_cand_per_clust
 
-def write_results(selected_cand_per_clust, clusters, all_cand, outdir):
+def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand, outdir):
     """Writes the outputs
 
     Args:
@@ -929,6 +932,8 @@ def write_results(selected_cand_per_clust, clusters, all_cand, outdir):
         
         if len(selected_cand_per_clust[cluster]) == 0:
             continue
+        
+        sources_in_clust = " ".join(clusters_sources[cluster])
         
         for cand in selected_cand_per_clust[cluster]:
             n_cluster = len(clusters[cluster])
@@ -963,7 +968,7 @@ def write_results(selected_cand_per_clust, clusters, all_cand, outdir):
                 sl_resource = None
                 sl_resource_id = None
             
-            line = f"{cluster}\t{n_cluster}\t{name}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
+            line = f"{cluster}\t{n_cluster}\t{sources_in_clust}\t{name}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
             line += f"{query_name}\t{pident}\t{qcovhsp}\t{positives}\t"
             line += f"{mismatch}\t{gaps}\t{e_value}\t{category}\t"
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
@@ -999,7 +1004,7 @@ def write_results(selected_cand_per_clust, clusters, all_cand, outdir):
         
         table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
         
-        header = "Cluster\tCluster_size\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
+        header = "Cluster\tCluster_size\tSources\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
         header += "GC\tQuery\tid\tcov\tpositives\tmismatch\tgaps\te-value\t"
         header += "Selection_type\tStrain_library_organism\tStrain_library_tax_id\t"
         header += "Collection\tCollection_id\n"
@@ -1108,8 +1113,14 @@ if __name__ == "__main__":
         exclude_cand = read_update_file(update_file)
     else:
         exclude_cand = set()
+        
+    sources_file = Path(args.sources)
+    sources = read_sources_file(sources_file)
+    
     cluster_file = Path(args.clusters)
-    clusters, exclude_cluster = read_clusters(cluster_file, exclude_cand)
+    clusters, clusters_sources, exclude_cluster = read_clusters(cluster_file,
+                                                                exclude_cand,
+                                                                sources)
     
     if args.cov_per_cluster is not None:
         max_cand = max_candidate_per_cluster(clusters, args.cov_per_cluster,
@@ -1117,9 +1128,6 @@ if __name__ == "__main__":
     else:
         max_cand = max_candidate_per_cluster(clusters, args.nb_cand,
                                              exclude_cluster)
-    
-    sources_file = Path(args.sources)
-    sources = read_sources_file(sources_file)
     
     strain_library_file = yml["strain_library"]
     strain_library = read_strain_library(strain_library_file)
@@ -1277,7 +1285,9 @@ if __name__ == "__main__":
                                                db_path,
                                                max_cand)
     
-    write_results(selected_cand_per_clust, clusters, all_seq, outdir)
+    write_results(selected_cand_per_clust, clusters, clusters_sources, all_seq,
+                  outdir)
+    
     end = datetime.datetime.now()
     logging.info(f"elapsed time: {end - start_selection}")    
     if "mda" in strain_library:
