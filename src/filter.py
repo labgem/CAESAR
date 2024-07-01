@@ -593,6 +593,32 @@ if __name__ == "__main__":
                     blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
         
+        else:
+            key_prefilter_file = outdir / f"{key}_prefilter.txt"
+            key_prefilter_file.write_text("\n".join(map_seq[key]))
+            
+            logging.info(f"search protein sequences in {key}")
+            result = run_seqkit(key_prefilter_file, db_path[key]["faa"])
+            
+            #key_prefilter_file.unlink()
+            
+            seq_id = ""
+            ids_checked = []
+                
+            if result.returncode != 0:
+                logging.error("An error has occured during seqkit process to "
+                              f"obtain protein squences of {key}:"
+                              f" {result.returncode}\n{result.stderr.decode('utf-8')}")
+            else:
+                fasta = result.stdout.decode("utf-8")
+                ids_selected = [s.split()[0][1:] for s in fasta.split("\n") if s.startswith(">")]
+                ids_checked.extend(ids_selected)
+                logging.info("done")
+                
+            for ic in ids_checked:
+                    blastp_filtered_lines += blastp_map[ic]
+                    sources_text += f"{ic} {key}\n"
+        
         write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,
                    sources_file, sources_text, i)
         
