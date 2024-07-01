@@ -600,7 +600,7 @@ if __name__ == "__main__":
             logging.info(f"search protein sequences in {key}")
             result = run_seqkit(key_prefilter_file, db_path[key]["faa"])
             
-            #key_prefilter_file.unlink()
+            key_prefilter_file.unlink()
             
             seq_id = ""
             ids_checked = []
