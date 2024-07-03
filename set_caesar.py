@@ -43,6 +43,12 @@ def read_yaml_config(config_path):
     return db_path, yml
 
 def check_db_path(db_path, config_file):
+    """Checks the databases paths
+
+    Args:
+        db_path (dict): databases access paths
+        config_file (Path): the configuration file
+    """
     
     logging.info("Checking the validity of the database paths indicated in the "
                  "configuration file")
@@ -83,6 +89,17 @@ def check_db_path(db_path, config_file):
     logging.info("All paths are valid")
     
 def check_config_options(yml, db_path):
+    """Checks the options in the configuration file
+
+    Args:
+        yml (dict): the content of the configuration file
+        db_path (dict): databases access paths
+
+    Returns:
+        module (list | None): the list of modules to load
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        parallel (bool): uses gnu parallel
+    """
     
     slurm = yml.get("slurm")
     parallel = yml.get("parallel")
@@ -136,6 +153,13 @@ def check_config_options(yml, db_path):
     return module, slurm, parallel
 
 def check_required_inputs(**kwargs):
+    """Checks the required inputs
+    
+    The required inputs are two files, so the function checks if they exists
+
+    Returns:
+        list_path (list): list containing the paths
+    """
     
     logging.info("Checking the required inputs")
     
@@ -155,6 +179,17 @@ def check_required_inputs(**kwargs):
     return list_path
 
 def check_general_options(slurm, threads, mem, outdir):
+    """Checks general options
+
+    Args:
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        threads (int): number of CPU threads for diamond processes
+        mem (str): memory limit for diamond process, e.g: 4G
+        outdir (str): output directory
+
+    Returns:
+        outdir (Path): output directory
+    """
     
     if slurm is False:
         n = os.cpu_count()
@@ -178,6 +213,17 @@ def check_general_options(slurm, threads, mem, outdir):
     return outdir
 
 def set_blastp(slurm, parallel, args, db_path):
+    """Builds the command for the blastp
+
+    Args:
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        parallel (bool): uses gnu parallel
+        args (argparse.Namespace): the object containing all arguments
+        db_path (dict): databases access paths
+
+    Returns:
+        text (str): output script instructions
+    """
     
     # Path to the blastp.sh script
     main_path = Path(__file__).absolute()
@@ -220,6 +266,15 @@ def set_blastp(slurm, parallel, args, db_path):
     return text
 
 def check_blastp_options(pid, cov, min_len, max_len, tax):
+    """Checks the blastp options
+
+    Args:
+        pid (float): %id
+        cov (float): %cov
+        min_len (int): minimum size
+        max_len (int): maximum size
+        tax (str): a string that indicates which superkingdom is allowed.
+    """
     
     if pid < 0:
         logging.error(f"--blast-id must be greater than 0 but '{pid}' is given")
@@ -259,6 +314,15 @@ def check_blastp_options(pid, cov, min_len, max_len, tax):
                       f" allowed characters are, A, B and E")
 
 def set_filter(slurm, args):
+    """Builds the command for the filtering step
+
+    Args:
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        args (argparse.Namespace): the object containing all arguments
+
+    Returns:
+        text (str): output script instructions
+    """
     
     # Path to the filter.py script
     main_path = Path(__file__).absolute()
@@ -313,6 +377,15 @@ def set_filter(slurm, args):
     return text
 
 def set_clustering(slurm, args):
+    """Builds the command for the clustering
+
+    Args:
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        args (argparse.Namespace): the object containing all arguments
+
+    Returns:
+        text (str): output script instructions
+    """
     
     # Path to the clustering.sh script
     main_path = Path(__file__).absolute()
@@ -364,6 +437,12 @@ def set_clustering(slurm, args):
     return text
     
 def check_clustering_options(pid, cov):
+    """Checks the clustering options
+
+    Args:
+        pid (float): %id
+        cov (float): %cov
+    """
     
     if pid < 0:
         logging.error(f"--cluster-id must be greater than 0 but '{pid}' is given")
@@ -386,6 +465,15 @@ def check_clustering_options(pid, cov):
         sys.exit(1)
         
 def set_candidate_selection(slurm, args):
+    """Builds the command for the candidate selection step
+
+    Args:
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        args (argparse.Namespace): the object containing all arguments
+
+    Returns:
+        text (str): output script instructions
+    """
     
     # Path to the candidate_selection.py script
     main_path = Path(__file__).absolute()
@@ -494,6 +582,13 @@ def set_candidate_selection(slurm, args):
     return text
 
 def check_candidate_selection_options(gc, n, cov_per_cluster):
+    """Checks the candidate selection options
+
+    Args:
+        gc (float): %gc
+        n (int): maximum number of candidate per cluster
+        cov_per_cluster (float | None): selects a percentage of each cluster
+    """
     
     if gc < 0:
         logging.error(f"--cov-per-cluster must be greater than 0 but"
@@ -527,6 +622,11 @@ def check_candidate_selection_options(gc, n, cov_per_cluster):
         sys.exit(1)
 
 def checks_optional_file(args):
+    """Checks optional files
+
+    Args:
+        args (argparse.Namespace): the object containing all arguments
+    """
     
     start = args.start
     
