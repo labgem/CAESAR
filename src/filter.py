@@ -385,6 +385,7 @@ if __name__ == "__main__":
         
     map_seq = {}
     blastp_map = {}
+    text = "## Blastp ##\n"
     
     start = datetime.datetime.now()
     
@@ -434,6 +435,8 @@ if __name__ == "__main__":
                 ids_checked.extend(superkindgoms_filter(lineage.text,
                                                         taxon_pattern))
             logging.info(f"{n_seq_id}/{n_seq_id}")
+            
+            text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
             
             # get fasta for sequences that pass the filter
             logging.info(f"retrieves fasta for uniprot sequences")
@@ -502,7 +505,9 @@ if __name__ == "__main__":
                         logging.info(f"{j}/{n_seq_id}")
                     else:
                         logging.info(f"{n_seq_id}/{n_seq_id}")
-                    
+            
+            text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
+                  
             for ic in ids_checked:
                 blastp_filtered_lines += blastp_map[ic]
                 sources_text += f"{ic} {key}\n"
@@ -556,6 +561,8 @@ if __name__ == "__main__":
                 fasta = result.stdout.decode("utf-8")
                 logging.info("done")
             
+            text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
+            
             for ic in ids_checked:
                 blastp_filtered_lines += blastp_map[ic]
                 sources_text += f"{ic} {key}\n"
@@ -589,6 +596,8 @@ if __name__ == "__main__":
                     
                     ids_checked.extend(ids_selected)
                 
+                text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
+                
                 for ic in ids_checked:
                     blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
@@ -614,12 +623,22 @@ if __name__ == "__main__":
                 ids_selected = [s.split()[0][1:] for s in fasta.split("\n") if s.startswith(">")]
                 ids_checked.extend(ids_selected)
                 logging.info("done")
-                
+            
+            text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
+            
             for ic in ids_checked:
                     blastp_filtered_lines += blastp_map[ic]
                     sources_text += f"{ic} {key}\n"
         
         write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,
                    sources_file, sources_text, i)
-        
+    
+    summary_file = outdir.parent / "summary.out"
+    
+    if summary_file.exists():
+        with summary_file.open("a") as f:
+            f.write(text)
+    else:
+        summary_file.write_text(text)
+    
     logging.info(f"elapsed time: {datetime.datetime.now() - start}")
