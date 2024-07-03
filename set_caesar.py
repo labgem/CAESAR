@@ -616,6 +616,47 @@ def checks_optional_file(args):
             logging.error(f"-u, --update option value: '{update}' was not found"
                           " or isn't a file")
             sys.exit(1)
+            
+def write_summary(args, db_path, outdir):
+    """Writes summary.out
+
+    Args:
+        args (argparse.Namespace): the object containing all arguments
+        db_path (dict): databases access paths
+        outdir (Path): output directory
+    """
+    
+    summary_file = outdir / "sumarry.out"
+    text = "## Command ##\n"
+    text += "python " + " ".join(sys.argv) + "\n\n"
+    
+    text += "## Options ##\n"
+    text += f"--blast-id: {args.blast_id}\t"
+    text += f"--blast-cov: {args.blast_cov}\t"
+    text += f"--min-len: {args.min_len}\t"
+    text += f"--max-len: {args.max_len}\t"
+    text += f"--tax: {args.tax}\n"
+    
+    text += f"--cluster-id: {args.cluster_id}\t"
+    text += f"--cluster-cov: {args.cluster_cov}\n"
+    
+    text += f"--gc: {args.gc}\t"
+    if args.cov_per_cluster is None:
+        text += f"-n: {args.nb_cand}\t"
+    else:
+        text += f"--cov-per-cluster: {args.cov_per_cluster}\t"
+    
+    text += f"--update: {args.update}\n\n"
+    
+    text += "## Database ##\n"
+    for key in db_path:
+        text += f"{key}_db:\n"
+        for sub_key in db_path[key]:
+            text += f'- {sub_key}: "{db_path[key][sub_key]}"\n'
+    
+    text += "\n"
+    
+    summary_file.write_text(text)
 
 ##########
 ## MAIN ##
@@ -747,4 +788,7 @@ if __name__ == "__main__":
     
     caesar_file = Path.cwd().absolute() / "run_caesar.sh"
     caesar_file.write_text(caesar_text)
+    
+    write_summary(args, db_path, outdir)
+    
     logging.info("To run the pipeline:\n\nbash ./run_caesar.sh")
