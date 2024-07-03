@@ -968,7 +968,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
                 sl_resource = None
                 sl_resource_id = None
             
-            line = f"{cluster}\t{n_cluster}\t{sources_in_clust}\t{name}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
+            line = f"{name}\t{cluster}\t{n_cluster}\t{sources_in_clust}\t{os}\t{ox}\t{cds_id}\t{gc}\t"
             line += f"{query_name}\t{pident}\t{qcovhsp}\t{positives}\t"
             line += f"{mismatch}\t{gaps}\t{e_value}\t{category}\t"
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
@@ -1004,7 +1004,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         
         table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
         
-        header = "Cluster\tCluster_size\tSources\tCandidate\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
+        header = "Candidate\tCluster\tCluster_size\tSources\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
         header += "GC\tQuery\tid\tcov\tpositives\tmismatch\tgaps\te-value\t"
         header += "Selection_type\tStrain_library_organism\tStrain_library_tax_id\t"
         header += "Collection\tCollection_id\n"
