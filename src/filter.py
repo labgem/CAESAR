@@ -633,6 +633,7 @@ if __name__ == "__main__":
         write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,
                    sources_file, sources_text, i)
     
+    text += "\n"
     summary_file = outdir.parent / "summary.out"
     
     if summary_file.exists():
