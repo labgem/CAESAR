@@ -305,9 +305,9 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
         logging.info(f"List of excluded clusters due to the --update option:"
                      f"\n{exclude_str}")
         text += "List of excluded clusters due to the --update option:"
-        text += f"\n{exclude_str}\n"
+        text += f"\n{exclude_str}"
 
-    text = "## Clustering ##\n" + text
+    text = "## Clustering ##\n" + text + "\n\n"
     
     return max_cand, text
 
@@ -934,13 +934,18 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         _type_: _description_
     """
     
+    text = "## Candidate Selection ##\nCategory\tNumber of candidates\n"
+    cluster_without_cand = 0
     results_categories = {"strain_library":{"table":"", "faa":"", "fna":""},
                           "order":{"table":"", "faa":"", "fna":""}}
+    
+    nb_cand_per_cat = {c:0 for c in results_categories}
     
     # Loop to complete results_categories
     for cluster in selected_cand_per_clust:
         
         if len(selected_cand_per_clust[cluster]) == 0:
+            cluster_without_cand += 1
             continue
         
         sources_in_clust = " ".join(clusters_sources[cluster])
@@ -984,11 +989,13 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
             line += f"{sl_org}\t{sl_tax_id}\t{sl_resource}\t{sl_resource_id}\n"
             
             if category in ["tax_id", "home_strain", "species"]:
+                nb_cand_per_cat["strain_library"] += 1
                 results_categories["strain_library"]["table"] += line
                 results_categories["strain_library"]["faa"] += all_cand[name].protein_fasta
                 results_categories["strain_library"]["fna"] += all_cand[name].nucleic_fasta
                 
             elif category == "order":
+                nb_cand_per_cat["order"] += 1
                 results_categories["order"]["table"] += line
                 results_categories["order"]["faa"] += all_cand[name].protein_fasta
                 results_categories["order"]["fna"] += all_cand[name].nucleic_fasta
@@ -997,13 +1004,16 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
                 if category not in results_categories:
                     results_categories[category] = {"table":"", "faa":"",
                                                     "fna":""}
-                    
+                    nb_cand_per_cat[category] = 0
+                
+                nb_cand_per_cat[category] += 1
                 results_categories[category]["table"] += line
                 results_categories[category]["faa"] += all_cand[name].protein_fasta
                 results_categories[category]["fna"] += all_cand[name].nucleic_fasta
     
     # Loop to writes results per category       
     for category in results_categories:
+        text += f"{category}\t{nb_cand_per_cat[category]}\n"
         if len(results_categories[category]["table"]) == 0:
             continue
         
@@ -1034,6 +1044,12 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         else:
             faa_file = Path.joinpath(category_dir, "all_candidates.fna")
             faa_file.write_text(results_categories[category]["fna"])
+            
+    text += f"Number of cluster without candidates: {cluster_without_cand}"
+    
+    summary_file = outdir / "summary.out"
+    with summary_file.open("a") as f:
+        f.write(text)
     
     return 0
 
