@@ -21,6 +21,15 @@ from pathlib import Path
 ###############
 
 def read_yaml_config(config_path):
+    """Reads the config file in yaml format
+
+    Args:
+        config_path (Path): path of the config file
+
+    Returns:
+        db_path (dict): path of the databases
+        mail (str): mail used for the ncbi entrez
+    """
     
     with open(config_path, "r") as f:
         yml = yaml.safe_load(f)
@@ -90,6 +99,8 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
                     map_seq["uniprot"] = set()
                     map_seq["uniprot"].add(seq_id)
             
+            # for other databases, we use the name of the blastp output file to
+            # gets the source database
             else:
                 seq_id = ls[2]
                 source = re.search("matches_(.+?)\\.tsv", blastp_file.name).group(1).lower()
@@ -115,7 +126,7 @@ def uniprotkb_accessions(query, data_type):
         data_type (str): fasta to retrieve fasta or lineage to retrieve lineage
 
     Returns:
-        _type_: _description_
+        results (requests.Response): the server response
     """
     
     query_str = ",".join(query)
@@ -236,7 +247,7 @@ def efecth_ncbi_genpept(query, mail):
         mail (str): email for Entrez
 
     Returns:
-        handle (HTTTPResponse): the response
+        handle (HTTTPResponse): the server response
     """
     
     Entrez.email = mail
@@ -389,6 +400,7 @@ if __name__ == "__main__":
     
     start = datetime.datetime.now()
     
+    # Reads blastp output and filters on %id %cov and size
     for blastp_file in blastp_list_file:
         logging.info(blastp_file.name)
         seq, blastp_lines = filter_sequence_properties(blastp_file=blastp_file,
@@ -397,6 +409,7 @@ if __name__ == "__main__":
                                                            max_len=args.max,
                                                            min_len=args.min)
         
+        # Key correspond to the sources database
         key = list(seq.keys())[0]
         if key in map_seq:
             map_seq[key].update(seq[key])
@@ -427,7 +440,7 @@ if __name__ == "__main__":
             logging.info("taxonomy filtering for uniprot sequences")
             ids_checked = []
 
-            # get lineage and filter it
+            # Get lineage and filter it
             for j in range(0, n_seq_id, 500):
                 logging.info(f"{j}/{n_seq_id}")
                 lineage = uniprotkb_accessions(map_seq[key][j:j+500], "lineage")
@@ -438,7 +451,7 @@ if __name__ == "__main__":
             
             text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
             
-            # get fasta for sequences that pass the filter
+            # Get fasta for sequences that pass the filter
             logging.info(f"retrieves fasta for uniprot sequences")
             for j in range(0, len(ids_checked), 500):
                 logging.info(f"{j}/{len(ids_checked)}")
@@ -446,7 +459,7 @@ if __name__ == "__main__":
                 fasta += sequences.text
             logging.info(f"{len(ids_checked)}/{len(ids_checked)}")
                 
-            # get the blastp lines for the checked sequences and update the
+            # Get the blastp lines for the checked sequences and update the
             # lines to write in sources.txt                
             for ic in ids_checked:
                 blastp_filtered_lines += blastp_map[ic]
@@ -480,22 +493,22 @@ if __name__ == "__main__":
             
             logging.info("taxonomy filtering and retrieve fasta for nr sequences")
             
-            # build data structure
+            # Build data structure
             data = [[map_seq[key][j:j+200], mail, taxon_pattern]
                     for j in range(0, len(map_seq[key]), 200)]
 
-            # use ThreadPoolExecturor with context manager
+            # Use ThreadPoolExecturor with context manager
             with ThreadPoolExecutor(max_workers=3) as executor:
                 j = 0
                 logging.info(f"{j}/{n_seq_id}")
                 
-                # submit tasks
+                # Submit tasks
                 # a task = fetch 200 (max) genpept at xml format from ncbi Entrez
                 # and parse the xml to filter by the taxonomy, the cds 
                 # availability and get the sequences
                 futures = [executor.submit(worker, elem) for elem in data]
                 
-                # iterates over results as soon they are completed
+                # Iterates over results as soon they are completed
                 for future in as_completed(futures):
                     ids_selected, seq_selected = future.result()
                     ids_checked.extend(ids_selected)
@@ -541,6 +554,7 @@ if __name__ == "__main__":
                               "obtain nucleic squences for Cloaca:"
                               f" {result.returncode}\n{result.stderr.decode('utf-8')}")
             else:
+                # Specific filter for cloaca sequences
                 logging.info("filters cloaca sequences based on superkingdoms "
                              "and removes non-complete gene")
                 ids_checked.extend(cloaca_filter(result.stdout.decode("utf-8"),
@@ -590,6 +604,7 @@ if __name__ == "__main__":
                                   "obtain protein squences for TARA:"
                                   f" {result.returncode}\n{result.stderr.decode('utf-8')}")
                 else:
+                    # Specific filter for TARA sequences
                     logging.info("filters TARA sequences, removes non-complete gene")
                     ids_selected, fasta = tara_filter(result.stdout.decode("utf-8"),
                                                       "gene_type:complete")
@@ -603,6 +618,7 @@ if __name__ == "__main__":
                     sources_text += f"{ic} {key}\n"
         
         else:
+            # No specific filter for other databases
             key_prefilter_file = outdir / f"{key}_prefilter.txt"
             key_prefilter_file.write_text("\n".join(map_seq[key]))
             
