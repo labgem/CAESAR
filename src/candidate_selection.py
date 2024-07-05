@@ -248,7 +248,8 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
         TypeError: raised if value isn't an int or a float
 
     Returns:
-        max_cand (dict): as key the cluster name and as value the maximum number 
+        max_cand (dict): as key the cluster name and as value the maximum number
+        text (str): info on the clustering
     """
     
     max_cand = {}
@@ -285,21 +286,30 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
         raise TypeError(f"'value' should be an int or a float not a: {type(value)}")
     
     mean_len = round(sum_len / L, 1)
-    mean_without_singleton = round((sum_without_singleton / (L - nb_singleton)),1)
+    try:
+        mean_without_singleton = round((sum_without_singleton / (L - nb_singleton)),1)
+    except ZeroDivisionError:
+        mean_without_singleton = "NA"
     p_singleton = round((nb_singleton / L) * 100, 1)
     
-    logging.info(f"Clusters Statistics")
-    logging.info(f"Number of clusters: {L}")
-    logging.info(f"Number of singleton (1 sequence): {nb_singleton}")
-    logging.info(f"Proportion of singleton: {p_singleton}")
-    logging.info(f"Largest cluster: {max_name} size: {max_len}")
-    logging.info(f"Mean cluster size with singleton: {mean_len}")
-    logging.info(f"Mean cluster size without singleton: {mean_without_singleton}")
+    text = f"Number of clusters: {L}\n"
+    text += f"Number of singleton (cluster with 1 sequence): {nb_singleton}\n"
+    text += f"Proportion of singleton: {p_singleton}\n"
+    text += f"Largest cluster: {max_name} size: {max_len}\n"
+    text += f"Mean cluster size with singleton: {mean_len}\n"
+    text += f"Mean cluster size without singleton: {mean_without_singleton}"
+    
+    logging.info(f"Clusters Statistics:\n{text}")
     if len(exclude_cluster) != 0:
         exclude_str = '\n'.join(exclude_cluster)
         logging.info(f"List of excluded clusters due to the --update option:"
                      f"\n{exclude_str}")
-    return max_cand
+        text += "List of excluded clusters due to the --update option:"
+        text += f"\n{exclude_str}\n"
+
+    text = "## Clustering ##\n" + text
+    
+    return max_cand, text
 
 def read_sources_file(sources_file):
     """Reads sources file
@@ -1123,11 +1133,18 @@ if __name__ == "__main__":
                                                                 sources)
     
     if args.cov_per_cluster is not None:
-        max_cand = max_candidate_per_cluster(clusters, args.cov_per_cluster,
+        max_cand, text = max_candidate_per_cluster(clusters, args.cov_per_cluster,
                                              exclude_cluster)
     else:
-        max_cand = max_candidate_per_cluster(clusters, args.nb_cand,
+        max_cand, text = max_candidate_per_cluster(clusters, args.nb_cand,
                                              exclude_cluster)
+        
+    summary_file = outdir / "summary.out"
+    if summary_file.exists:
+        with summary_file.open("a") as f:
+            f.write(text)
+    else:
+        summary_file.write_text(text)
     
     strain_library_file = yml["strain_library"]
     strain_library = read_strain_library(strain_library_file)
