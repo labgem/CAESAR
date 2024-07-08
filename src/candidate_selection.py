@@ -56,7 +56,7 @@ class Candidate():
         self.query = None
         
     def __str__(self):
-        """return a human-readable string to represent the object
+        """Returns a human-readable string to represent the object
 
         Returns:
             str: formatted string
@@ -195,6 +195,9 @@ def read_clusters(cluster_file, exclude_cand, sources):
     Returns:
         clusters (dict): the cluster name as key and the list of members as
         value 
+        clusters_sources (dict): dictionary to find out how many members of each
+        cluster come from a given database
+        exclude_cluster (set): set of removed clusters
     """
     
     clusters = {}
@@ -225,6 +228,7 @@ def read_clusters(cluster_file, exclude_cand, sources):
             clusters[ref].append(member)
             clusters_sources[ref].add(sources[member])
             
+            # If a cluster member is in exclude_cand, the entire cluster is removed
             if ref in exclude_cand:
                 exclude_cluster.add(ref)
             elif member in exclude_cand:
@@ -243,6 +247,7 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
         clusters (dict): as key the cluster name and as value the set of members
         value (int | float):  the maximum number of candidate or a percentage of
         the cluster size
+        exclude_cluster (set): set of removed clusters
 
     Raises:
         TypeError: raised if value isn't an int or a float
@@ -260,6 +265,7 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
     max_name = ""
     L = len(clusters)
     
+    # value is an int, so the maximum number of candidate is fix
     if isinstance(value, int):
         max_cand = {k:value for k in clusters}
         for clust in clusters:
@@ -274,6 +280,7 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
                     max_len = l
                     max_name = clust
     
+    # value is a float, so the maximum number of candidate correpond to %value
     elif isinstance(value, float):
         for clust in clusters:
             n = int(round(len(clusters[clust]) / (100/value), 0))
@@ -281,10 +288,11 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
                 n = 1
             
             max_cand[clust] = n
-        
+    
     else:
         raise TypeError(f"'value' should be an int or a float not a: {type(value)}")
     
+    # Statistics on clustering
     mean_len = round(sum_len / L, 1)
     try:
         mean_without_singleton = round((sum_without_singleton / (L - nb_singleton)),1)
@@ -923,15 +931,16 @@ def select_candidate(presel, all_cand, yml, sources_db, max_cand):
     return selected_cand_per_clust
 
 def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand, outdir):
-    """Writes the outputs
+    """Writes the results
 
     Args:
-        selected_cand_per_clust (dict): The selected candiate(s) per cluster
-        all_cand (_type_): _description_
-        outdir (_type_): _description_
-
-    Returns:
-        _type_: _description_
+        selected_cand_per_clust (dict): as key the cluster name and as value a
+        list with a 5-tuple per candidate
+        clusters (dict): the cluster name as key and the list of members as value 
+        clusters_sources (dict): dictionary to find out how many members of each
+        cluster come from a given database
+        all_cand (dict): as key the sequence id and as value a Candidate object
+        outdir (Path): output directory
     """
     
     text = "## Candidate Selection ##\nCategory\tNumber of candidates\n"
