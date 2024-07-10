@@ -726,7 +726,7 @@ def write_summary(args, db_path, outdir):
         outdir (Path): output directory
     """
     
-    summary_file = outdir / "sumarry.out"
+    summary_file = outdir / "summary.out"
     text = "## Command ##\n"
     text += "python " + " ".join(sys.argv) + "\n\n"
     
