@@ -290,7 +290,10 @@ def read_genpept(handle, taxon_pattern):
                     for quals in feature['GBFeature_quals']:
                         if quals['GBQualifier_name'] == "db_xref":
                             tax_id = quals['GBQualifier_value']
-                            tax_id = re.search("taxon:(\\d+)", tax_id).group(1)
+                            try:
+                                tax_id = re.search("taxon:(\\d+)", tax_id).group(1)
+                            except AttributeError:
+                                continue
         
         if cds == True:
             seq_id = elem['GBSeq_accession-version']
