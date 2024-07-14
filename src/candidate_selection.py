@@ -786,7 +786,7 @@ def read_cds_na(handle, all_seq, uniprot_cds_map, target_gc):
     for fasta in handle.read().split(">")[1:]:
         try:
             protein_id = re.search("protein_id=([^\\s]+)\\]", fasta).group(1)
-        except:
+        except Exception:
             continue
         
         # If source db = uniprot
