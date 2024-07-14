@@ -369,7 +369,7 @@ def read_strain_library(strain_library_path):
                 strain_library["tax_id"].append(split_line[1].strip())
                 strain_library["resource"].append(f"{split_line[2].strip()},"
                                                    f"{split_line[3].strip()}")
-                if mda != False:
+                if mda is not False:
                     strain_library["mda"].append(split_line[mda].strip())
                     
     return strain_library
