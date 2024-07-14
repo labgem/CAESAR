@@ -930,7 +930,8 @@ def select_candidate(presel, all_cand, yml, sources_db, max_cand):
         
     return selected_cand_per_clust
 
-def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand, outdir):
+def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
+                  ref_candidate_count, outdir):
     """Writes the results
 
     Args:
@@ -940,6 +941,8 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         clusters_sources (dict): dictionary to find out how many members of each
         cluster come from a given database
         all_cand (dict): as key the sequence id and as value a Candidate object
+        ref_candidate_count (dict): for each reference, indicate the number of 
+        candidate who matched with it
         outdir (Path): output directory
     """
     
@@ -949,6 +952,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
                           "order":{"table":"", "faa":"", "fna":""}}
     
     nb_cand_per_cat = {c:0 for c in results_categories}
+    all_candidate_ids = []
     
     # Loop to complete results_categories
     for cluster in selected_cand_per_clust:
@@ -968,6 +972,8 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
             gc = all_cand[name].gc  # %GC
             cds_id = all_cand[name].cds_id  # EMBL-GenBank-DDBJ_CDS
             
+            all_candidate_ids.append(name)
+            
             if all_cand[name].query is not None:
                 query_name = all_cand[name].query[0]  # reference sequence name
                 pident = all_cand[name].query[1]  # %id
@@ -976,6 +982,8 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
                 mismatch = all_cand[name].query[4]  # %mismatch
                 gaps = all_cand[name].query[5]  # %gaps
                 e_value = all_cand[name].query[6]  # e-value
+            
+                ref_candidate_count[query_name]["selected"] += 1
             
             # provide a data file with the -d/--data flag is optional
             else:
@@ -1059,6 +1067,17 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
     summary_file = outdir / "summary.out"
     with summary_file.open("a") as f:
         f.write(text)
+        
+    all_candidate_ids_file = outdir / "all_candidates_ids.txt"
+    all_candidate_ids_file.write_text("\n".join(all_candidate_ids))
+    
+    review_ref_file = outdir / "review_reference_sequences.tsv"
+    with review_ref_file.open("w") as f:
+        f.write("Reference\tTotal\tSelected\n")
+        for ref in ref_candidate_count:
+            total = ref_candidate_count[ref]["total"]
+            selected = ref_candidate_count[ref]["selected"]
+            f.write(f"{ref}\t{total}\t{selected}\n")
     
     return 0
 
@@ -1328,7 +1347,7 @@ if __name__ == "__main__":
                                                max_cand)
     
     write_results(selected_cand_per_clust, clusters, clusters_sources, all_seq,
-                  outdir)
+                  ref_candidate_count, outdir)
     
     end = datetime.datetime.now()
     logging.info(f"elapsed time: {end - start_selection}")    
