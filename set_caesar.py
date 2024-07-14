@@ -42,12 +42,13 @@ def read_yaml_config(config_path):
     
     return db_path, yml
 
-def check_db_path(db_path, config_file):
+def check_db_path(db_path, config_file, start):
     """Checks the databases paths
 
     Args:
         db_path (dict): databases access paths
         config_file (Path): the configuration file
+        start (str): the starting step
     """
     
     logging.info("Checking the validity of the database paths indicated in the "
@@ -82,7 +83,7 @@ def check_db_path(db_path, config_file):
                                   f": '{db_name}_db' without the _db suffix")
                     sys.exit(1)
 
-        if dmnd is False:
+        if dmnd is False and start == "blastp":
             logging.error(f"No diamond database provided for '{db_name}_db' field")
             sys.exit(1)
                 
@@ -858,7 +859,7 @@ if __name__ == "__main__":
                                                     query=args.query)
     
     db_path,yml = read_yaml_config(Path(args.config))
-    check_db_path(db_path, args.config)
+    check_db_path(db_path, args.config, args.start)
     module, slurm, parallel = check_config_options(yml, db_path)
     outdir = check_general_options(slurm, threads=args.threads, mem=args.mem,
                                    outdir=args.outdir)
