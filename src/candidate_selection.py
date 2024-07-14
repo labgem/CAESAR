@@ -1071,13 +1071,14 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
     all_candidate_ids_file = outdir / "all_candidates_ids.txt"
     all_candidate_ids_file.write_text("\n".join(all_candidate_ids))
     
-    review_ref_file = outdir / "review_reference_sequences.tsv"
-    with review_ref_file.open("w") as f:
-        f.write("Reference\tTotal\tSelected\n")
-        for ref in ref_candidate_count:
-            total = ref_candidate_count[ref]["total"]
-            selected = ref_candidate_count[ref]["selected"]
-            f.write(f"{ref}\t{total}\t{selected}\n")
+    if args.data is not None:
+        review_ref_file = outdir / "review_reference_sequences.tsv"
+        with review_ref_file.open("w") as f:
+            f.write("Reference\tTotal\tSelected\n")
+            for ref in ref_candidate_count:
+                total = ref_candidate_count[ref]["total"]
+                selected = ref_candidate_count[ref]["selected"]
+                f.write(f"{ref}\t{total}\t{selected}\n")
     
     return 0
 
@@ -1200,6 +1201,8 @@ if __name__ == "__main__":
         data_file = Path(args.data)
     
         all_seq, ref_candidate_count = get_query_information(all_seq, data_file)
+    else:
+        ref_candidate_count = {}
 
     logging.info("Preselect candidate based on strain library")
     start_presel = datetime.datetime.now()
