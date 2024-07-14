@@ -404,9 +404,13 @@ def read_fasta_candidates(fasta_file):
                 all_seq[seq_id].update_protein_fasta(line)
                 
                 try:
-                    os = re.search("OS=(.+?)(.OX|$)", line).group(1)
-                    # Sets the organism name
-                    all_seq[seq_id].set_organism_name(os)
+                    if 'OS=' in line:
+                        os = re.search("OS=(.+?)(.OX|$)", line).group(1)
+                        # Sets the organism name
+                        all_seq[seq_id].set_organism_name(os)
+                    else:
+                        os = re.search("\\[(.+?)\\]", line).group(1)
+                        all_seq[seq_id].set_organism_name(os) 
                 except AttributeError:
                     continue
                 
@@ -597,7 +601,7 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                         break
                     
                     elif os is not None:
-                        # traditional organism is in the format : genus species
+                        # traditional organism name is in the format : genus species
                         os_split = os.split()
                         genus = os_split[0]
                         specie = os_split[1]
@@ -606,22 +610,26 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                         for i in range(len(strain_library[key])):
 
                             # Checks exact match
-                            if os == strain_library[key][i]:
-                                clust_cand["species"].append((cand,
-                                                            strain_library["name"][i],
-                                                            strain_library["tax_id"][i],
-                                                            strain_library["resource"][i]))
-                                find = True
-                                break
-                            
-                            # Checks if the name pattern match
-                            elif re.search(name, strain_library[key][i]):
-                                clust_cand["species"].append((cand,
+                            try:
+                                if os == strain_library[key][i]:
+                                    clust_cand["species"].append((cand,
                                                                 strain_library["name"][i],
                                                                 strain_library["tax_id"][i],
                                                                 strain_library["resource"][i]))
-                                find = True
-                                break
+                                    find = True
+                                    break
+                                
+                                # Checks if the name pattern match
+                                
+                                elif re.search(name, strain_library[key][i]):
+                                    clust_cand["species"].append((cand,
+                                                                    strain_library["name"][i],
+                                                                    strain_library["tax_id"][i],
+                                                                    strain_library["resource"][i]))
+                                    find = True
+                                    break
+                            except Exception:
+                                pass
                         
                         # No correspondance in the strain library         
                         if find is False:
@@ -640,7 +648,11 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                     # comes from a db other than uniprot or nr 
                     # (the header format is modified by CAESAR)
                     elif len(alt_db) != 0:
-                        clust_cand[sources[cand]].append((cand,None,None,None))
+                        try:
+                            clust_cand[sources[cand]].append((cand,None,None,None))
+                        except KeyError:
+                            print(cand, all_seq[cand].os)
+                            exit()
                         find = True
                 
                 # Adds the candidates in the finded dict  
