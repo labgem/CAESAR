@@ -263,21 +263,21 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
     nb_singleton = 0
     max_len = 0
     max_name = ""
-    L = len(clusters)
+    size = len(clusters)
     
     # value is an int, so the maximum number of candidate is fix
     if isinstance(value, int):
         max_cand = {k:value for k in clusters}
         for clust in clusters:
             max_cand[clust] = value
-            l = len(clusters[clust])
-            sum_len += l
-            if l == 1:
+            size = len(clusters[clust])
+            sum_len += size
+            if size == 1:
                 nb_singleton += 1
             else:
-                sum_without_singleton += l
-                if l > max_len:
-                    max_len = l
+                sum_without_singleton += size
+                if size > max_len:
+                    max_len = size
                     max_name = clust
     
     # value is a float, so the maximum number of candidate correpond to %value
@@ -293,14 +293,14 @@ def max_candidate_per_cluster(clusters, value, exclude_cluster):
         raise TypeError(f"'value' should be an int or a float not a: {type(value)}")
     
     # Statistics on clustering
-    mean_len = round(sum_len / L, 1)
+    mean_len = round(sum_len / size, 1)
     try:
-        mean_without_singleton = round((sum_without_singleton / (L - nb_singleton)),1)
+        mean_without_singleton = round((sum_without_singleton / (size - nb_singleton)),1)
     except ZeroDivisionError:
         mean_without_singleton = "NA"
-    p_singleton = round((nb_singleton / L) * 100, 1)
+    p_singleton = round((nb_singleton / size) * 100, 1)
     
-    text = f"Number of clusters: {L}\n"
+    text = f"Number of clusters: {size}\n"
     text += f"Number of singleton (cluster with 1 sequence): {nb_singleton}\n"
     text += f"Proportion of singleton: {p_singleton}\n"
     text += f"Largest cluster: {max_name} size: {max_len}\n"
