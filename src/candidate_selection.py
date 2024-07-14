@@ -1290,7 +1290,7 @@ if __name__ == "__main__":
                         logging.error(f"{i}/{n_seq_id} {err}")
                     else:
                         logging.error(f"{n_seq_id}/{n_seq_id} {err}")
-                except Exception as err:
+                except Exception:
                     i += 200
                     if i <= n_seq_id:
                         logging.error(f"{i}/{n_seq_id} An error has occured:\n"
