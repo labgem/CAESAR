@@ -675,7 +675,7 @@ def uniprot_id_mapping(query):
     """
     
     if len(query) > 100_000:
-        raise ValueError(f"number of ids must be less than 100 000")
+        raise ValueError("number of ids must be less than 100 000")
     
     POOLING_INTERVAL = 5
     API_URL = "https://rest.uniprot.org/idmapping/"
@@ -705,7 +705,7 @@ def uniprot_id_mapping(query):
         # if jobStatus is present, this means that the job has not been completed
         if "jobStatus" in job:
             if job["jobStatus"] == "RUNNING" or job["jobStatus"] == "NEW":
-                logging.info(f"Checks job status...")
+                logging.info("Checks job status...")
                 time.sleep(POOLING_INTERVAL)
                 
             else:
@@ -718,7 +718,7 @@ def uniprot_id_mapping(query):
             break
     
     if isinstance(result, bool):
-        raise TypeError(f"Job completed but no results found")
+        raise TypeError("Job completed but no results found")
     
     return result
                     
@@ -1261,7 +1261,7 @@ if __name__ == "__main__":
                     query_map_cds[k] = v
             data.append((query, yml["mail"], query_map_cds, query_cand, args.gc))
 
-        logging.info(f"NCBI efetch fasta_cds_na")
+        logging.info("NCBI efetch fasta_cds_na")
         start_efecth = datetime.datetime.now()
         with ThreadPoolExecutor(max_workers=3) as executor:
             i = 0
