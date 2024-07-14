@@ -125,7 +125,7 @@ def check_config_options(yml, db_path):
     
     if module is None:
         logging.info("no module required")
-    elif type(module) == list:
+    elif isinstance(module, list):
         logging.info(f"The list of module to load: {module}")
     else:
         logging.error(f"The value: '{module}' of the key: 'module' is incorrect"
@@ -393,7 +393,6 @@ def set_clustering(slurm, args):
     src_path = parent_path / "src" / "clustering.sh"
     
     # Set the directory paths
-    blastp_dir = Path(args.outdir).absolute() / "blastp"
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     clusters_dir = Path(args.outdir).absolute() / "clusters"
     
@@ -481,7 +480,6 @@ def set_candidate_selection(slurm, args):
     src_path = parent_path / "src" / "candidate_selection.py"
     
     # Set the directory paths
-    blastp_dir = Path(args.outdir).absolute() / "blastp"
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     clusters_dir = Path(args.outdir).absolute() / "clusters"
 
@@ -497,7 +495,7 @@ def set_candidate_selection(slurm, args):
         
         if args.start in ["blastp", "filter"]:
             text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
-            text += f" --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+            text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
             text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
             text += f" -f {filtered_dir}/filtered_sequences.fasta -c {clusters_dir}"
             text += f"/clusters.tsv -s {filtered_dir}/sources.txt -d {filtered_dir}"
@@ -509,14 +507,14 @@ def set_candidate_selection(slurm, args):
             
             if args.start == "clustering":
                 text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
-                text += f" --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+                text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
                 text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
                 text += f" -f {fasta} -c {clusters_dir}/clusters.tsv -s {sources}"
                 text += f" -g {gc}"
                 
             elif args.start == "selection":
                 text += r"job_selection=$(sbatch "
-                text += f"--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
+                text += "--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
                 text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
                 clusters = Path(args.clusters).absolute()
                 text += f" -f {fasta} -c {clusters} -s {sources} -g {gc}"
