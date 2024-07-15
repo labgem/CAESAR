@@ -1251,8 +1251,8 @@ if __name__ == "__main__":
             uniprot_cds_map.update(cds_map)
             finded["nr"].update(set(cds_map.keys()))
     
-    end = datetime.datetime.now()
-    logging.info(f"elapsed time: {end - start_mapping}")
+        end = datetime.datetime.now()
+        logging.info(f"elapsed time: {end - start_mapping}")
     
     # NCBI Entrez to retrieves nucleic sequences
     if "nr" in finded:
