@@ -650,10 +650,9 @@ def preselect_candidates(all_seq, clusters, sources, strain_library):
                     elif len(alt_db) != 0:
                         try:
                             clust_cand[sources[cand]].append((cand,None,None,None))
+                            find = True
                         except KeyError:
-                            print(cand, all_seq[cand].os)
-                            exit()
-                        find = True
+                            pass
                 
                 # Adds the candidates in the finded dict  
                 if find is True:
