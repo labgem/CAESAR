@@ -63,6 +63,9 @@ def write_sequences(filtered_seqs, outdir):
     Args:
         filtered_seqs (dict): the filtered sequences
         outdir (Path): output directory
+        
+    Returns:
+        new_fasta (Path): the ouput fasta file
     """
     
     new_fasta = outdir / "representatives_seqs.fasta"
@@ -70,7 +73,30 @@ def write_sequences(filtered_seqs, outdir):
     with new_fasta.open("w") as f:
         for seq in filtered_seqs:
             f.write(filtered_seqs[seq])
+
+    return new_fasta
+
+def run_mafft(fasta_file, outdir):
+    """Runs Mafft to generate a multiple sequences alignemnt
+    Args:
+        fasta_file (Path): the fasta file
+        outdir (Path): the output directory
+
+    Returns:
+        msa_output (Path): the output msa file
+    """
     
+    msa_output = outdir / (fasta_file.stem + "_msa.fasta")
+    
+    MAFFT = "mafft"
+    
+    command = f"{MAFFT} --auto {fasta_file}"
+    
+    with msa_output.open("w") as f:
+        subprocess.run(command.split(), stdout=f, text=True)
+        
+    return msa_output
+
 ##########
 ## MAIN ##
 ##########
@@ -100,9 +126,13 @@ if __name__ == "__main__":
         logging.info("Retrieves only the representative sequence of each cluster")
         filtered_seqs = filter_fasta(Path(args.fasta), representative_seqs)
         logging.info("Writes the fasta file")
-        write_sequences(filtered_seqs, outdir)
+        filtered_fasta = write_sequences(filtered_seqs, outdir)
+        
+        logging.info("Build MSA with Mafft")
+        msa_file = run_mafft(filtered_fasta, outdir)
     else:
-        pass
+        logging.info("Build MSA with Mafft")
+        msa_file = run_mafft(Path(args.fasta), outdir)
         
     
     
