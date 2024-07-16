@@ -97,6 +97,28 @@ def run_mafft(fasta_file, outdir):
         
     return msa_output
 
+def run_fasttree(msa_file, outdir):
+    """Runs FastTree to generate a phylogenetic tree
+
+    Args:
+        msa_file (Path): the multiple sequence alignment file
+        outdir (Path): the output directory
+
+    Returns:
+        tree_output (Path): the output file in newick format
+    """
+    
+    tree_output = outdir / (msa_file.stem[:-4] + ".tree")
+    
+    FASTTREE = "FastTree"
+    
+    command = f"{FASTTREE} {msa_file}"
+    
+    with tree_output.open("w") as f:
+        subprocess.run(command.split(), stdout=f, text=True)
+        
+    return tree_output
+
 ##########
 ## MAIN ##
 ##########
@@ -128,12 +150,14 @@ if __name__ == "__main__":
         logging.info("Writes the fasta file")
         filtered_fasta = write_sequences(filtered_seqs, outdir)
         
-        logging.info("Build MSA with Mafft")
+        logging.info("Builds MSA with Mafft")
         msa_file = run_mafft(filtered_fasta, outdir)
     else:
-        logging.info("Build MSA with Mafft")
+        logging.info("Builds MSA with Mafft")
         msa_file = run_mafft(Path(args.fasta), outdir)
-        
     
+    logging.info("Builds phylogenetic tree with FastTree")
+    tree_file = run_fasttree(msa_file, outdir)
     
     end = datetime.datetime.now()
+    logging.info(f"elpased time: {end - start}")
