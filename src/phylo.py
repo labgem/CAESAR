@@ -129,8 +129,8 @@ if __name__ == "__main__":
                         format="%(levelname)s - %(asctime)s - %(message)s ")
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--outdir", type=str, default="./", metavar="",
-                        help="output directory [default: ./]")
+    parser.add_argument("-o", "--outdir", type=str, default=Path.cwd().absolute(),
+                        metavar="", help="output directory [default: ./]")
     parser.add_argument("-f", "--fasta", type=str, metavar="", required=True,
                         help="fasta file containing all the candidate sequences")
     parser.add_argument("--clusters", type=str, metavar="",
