@@ -12,6 +12,28 @@ from pathlib import Path
 ## Function ##
 ##############
 
+def get_representative_sequences(clusters_file):
+    """Reads a clusters.tsv file and retrieves the identifiers in the first column. 
+
+    Args:
+        clusters_file (Path): the clusters.tsv file
+
+    Returns:
+        representative_seqs (set): the set of representative sequences
+    """
+    
+    representative_seqs = set()
+    
+    with open(clusters_file, "r") as f:
+        for line in f:
+            representative_seqs.add(line.split()[0])
+            
+    return representative_seqs
+
+##########
+## MAIN ##
+##########
+
 if __name__ == "__main__":
     
     logging.basicConfig(level=logging.INFO,
