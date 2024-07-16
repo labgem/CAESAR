@@ -30,6 +30,34 @@ def get_representative_sequences(clusters_file):
             
     return representative_seqs
 
+def filter_fasta(fasta_file, representative_seqs):
+    """Filters fasta file based on a set of ids
+
+    Args:
+        fasta_file (Path): the fasta file
+        representative_seqs (set): the set of representative sequences
+
+    Returns:
+        filtered_seqs (dict): the filtered sequences
+    """
+    
+    filtered_seqs = {}
+    
+    with open(fasta_file, "r") as f:
+        seq_id = ""
+        for line in f:
+            if line.startswith(">"):
+                seq_id = line.split()[0][1:]
+                if seq_id in representative_seqs:
+                    filtered_seqs[seq_id] = line
+            
+            else:
+                if seq_id in representative_seqs:
+                    filtered_seqs[seq_id] += line
+                    
+    return filtered_seqs
+            
+
 ##########
 ## MAIN ##
 ##########
@@ -54,6 +82,11 @@ if __name__ == "__main__":
     start = datetime.datetime.now()
     
     if args.clusters is not None:
+        representative_seqs = get_representative_sequences(Path(args.clusters))
+        filtered_seqs = filter_fasta(Path(args.fasta), representative_seqs)
+    else:
         pass
+        
+    
     
     end = datetime.datetime.now()
