@@ -56,8 +56,21 @@ def filter_fasta(fasta_file, representative_seqs):
                     filtered_seqs[seq_id] += line
                     
     return filtered_seqs
-            
 
+def write_sequences(filtered_seqs, outdir):
+    """Writes sequences
+
+    Args:
+        filtered_seqs (dict): the filtered sequences
+        outdir (Path): output directory
+    """
+    
+    new_fasta = outdir / "representatives_seqs.fasta"
+    
+    with new_fasta.open("w") as f:
+        for seq in filtered_seqs:
+            f.write(filtered_seqs[seq])
+    
 ##########
 ## MAIN ##
 ##########
@@ -82,8 +95,12 @@ if __name__ == "__main__":
     start = datetime.datetime.now()
     
     if args.clusters is not None:
+        logging.info(f"Reads {args.clusters}")
         representative_seqs = get_representative_sequences(Path(args.clusters))
+        logging.info("Retrieves only the representative sequence of each cluster")
         filtered_seqs = filter_fasta(Path(args.fasta), representative_seqs)
+        logging.info("Writes the fasta file")
+        write_sequences(filtered_seqs, outdir)
     else:
         pass
         
