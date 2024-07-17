@@ -8,7 +8,7 @@ outdir=""
 Help(){
     echo "Script used only with a slurm sbatch command"
     echo
-    echo "usage: phylo.sh <path>/phylo.py [-h] [-o] -f [-c]"
+    echo "usage: phylo.sh [-h] [-o] -f [-c] <path>/phylo.py"
     echo
     echo "options:"
     echo "  -h    show this help message"
