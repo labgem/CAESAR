@@ -139,6 +139,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     outdir = Path(args.outdir)
+    if not outdir.exists():
+        outdir.mkdir()
     
     start = datetime.datetime.now()
     
