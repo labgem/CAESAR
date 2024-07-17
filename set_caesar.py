@@ -534,7 +534,12 @@ def set_candidate_selection(slurm, args):
             update = Path(args.update).absolute()
             text += f"-u {update}"
             
-        text += ")\n\n"
+        text += ")\n"
+        
+        if args.phylo == 1:
+            text += "id_selection=$(echo $job_selection | grep -oE '[0-9]+')\n\n"
+        else:
+            text += "\n"
         
     else:
         # The paths have been written by the pipeline
@@ -733,7 +738,25 @@ def set_phylo(slurm, args):
         return ""
     else:
         if slurm is True:
-            pass
+            sh_path = src_path.parent / "phylo.sh"
+            text += r"job_phylo=$(sbatch --dependency=afterok:${id_selection}"
+            text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_phylo -o "
+            text += f"%x_%j.log {sh_path} -o {args.outdir}"
+            
+            if args.start in ["blastp", "filter"]:
+                text += f" -f {filtered_dir}/filtered_sequences.fasta "
+                text += f"-c {clusters_dir}/clusters.tsv {src_path})\n"
+            
+            else:
+                fasta = Path(args.fasta_cand).absolute()
+                text += f" -f {fasta} "
+                
+                if args.start == "clustering":
+                    text += f"-c {clusters_dir}/clusters.tsv)\n"
+                elif args.start == "selection":
+                    clusters = Path(args.clusters).absolute()
+                    text += f"-c {clusters})\n"
+            
         else:
             if args.start in ["blastp", "filter"]:
                 text += f"python {src_path} -o {args.outdir} -f {filtered_dir}/"
@@ -742,12 +765,11 @@ def set_phylo(slurm, args):
 
             else:
                 fasta = Path(args.fasta_cand).absolute()
+                text += f"python {src_path} -o {args.outdir} -f {fasta} "
                 if args.start == "clustering":
-                    text += f"python {src_path} -o {args.outdir} -f {fasta} "
                     text += f"--clusters {cluster_tsv}/clusters.tsv\n"
                 elif args.start == "selection":
                     clusters = Path(args.clusters).absolute()
-                    text += f"python {src_path} -o {args.outdir} -f {fasta} "
                     text += f"--clusters {clusters}\n"
     
     return text
