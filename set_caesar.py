@@ -497,7 +497,7 @@ def set_candidate_selection(slurm, args):
         if args.start in ["blastp", "filter"]:
             text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
             text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
-            text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
+            text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
             text += f" -f {filtered_dir}/filtered_sequences.fasta -c {clusters_dir}"
             text += f"/clusters.tsv -s {filtered_dir}/sources.txt -d {filtered_dir}"
             text += f"/filtered_data.tsv -g {gc}"
@@ -509,14 +509,14 @@ def set_candidate_selection(slurm, args):
             if args.start == "clustering":
                 text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
                 text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
-                text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
+                text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
                 text += f" -f {fasta} -c {clusters_dir}/clusters.tsv -s {sources}"
                 text += f" -g {gc}"
                 
             elif args.start == "selection":
                 text += r"job_selection=$(sbatch "
                 text += "--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
-                text += f"%x_%j.log {sh_path} {src_path} -o {outdir} -C {args.config}"
+                text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
                 clusters = Path(args.clusters).absolute()
                 text += f" -f {fasta} -c {clusters} -s {sources} -g {gc}"
                 
@@ -716,6 +716,42 @@ def checks_optional_file(args):
                           " or isn't a file")
             sys.exit(1)
             
+def set_phylo(slurm, args):
+    
+    # Path to the phylo.py script
+    main_path = Path(__file__).absolute()
+    parent_path = main_path.parent
+    src_path = parent_path / "src" / "phylo.py"
+    
+    text = "#Phylogeny\n"
+    
+    # Set the directory paths
+    filtered_dir = Path(args.outdir).absolute() / "filtered"
+    clusters_dir = Path(args.outdir).absolute() / "clusters"
+    
+    if args.phylo == 0:
+        return ""
+    else:
+        if slurm is True:
+            pass
+        else:
+            if args.start in ["blastp", "filter"]:
+                text += f"python {src_path} -o {args.outdir} -f {filtered_dir}/"
+                text += f"filtered_sequences.fasta --clusters {clusters_dir}/"
+                text += "clusters.tsv\n"
+
+            else:
+                fasta = Path(args.fasta_cand).absolute()
+                if args.start == "clustering":
+                    text += f"python {src_path} -o {args.outdir} -f {fasta} "
+                    text += f"--clusters {cluster_tsv}/clusters.tsv\n"
+                elif args.start == "selection":
+                    clusters = Path(args.clusters).absolute()
+                    text += f"python {src_path} -o {args.outdir} -f {fasta} "
+                    text += f"--clusters {clusters}\n"
+    
+    return text
+            
 def write_summary(args, db_path, outdir):
     """Writes summary.out
 
@@ -825,6 +861,11 @@ if __name__ == "__main__":
                              "maximum number of candidates rather than a given"
                              " number")
     
+    phylo_opt = parser.add_argument_group("Phylogeny options")
+    phylo_opt.add_argument("-p", "--phylo",type=int, choices=[0,1], default=1,
+                           metavar="", help="1: generate a msa and a phylogenetic"
+                           " tree, 0: does not perform the step [default: 1]")
+    
     data_opt = parser.add_argument_group("Required if --start equals to"
                                          " 'filter', 'clustering' or 'selection'",
                                          "Could be a directory containing "
@@ -884,6 +925,7 @@ if __name__ == "__main__":
     
     if args.start in  ["blastp", "filter", "clustering", "selection"]:
         caesar_text += set_candidate_selection(slurm, args)
+        caesar_text += set_phylo(slurm, args)
     
     caesar_file = Path.cwd().absolute() / "run_caesar.sh"
     caesar_file.write_text(caesar_text)
