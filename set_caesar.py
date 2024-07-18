@@ -744,33 +744,46 @@ def set_phylo(slurm, args):
             text += f"%x_%j.log {sh_path} -o {args.outdir}"
             
             if args.start in ["blastp", "filter"]:
-                text += f" -f {filtered_dir}/filtered_sequences.fasta "
-                text += f"-c {clusters_dir}/clusters.tsv {src_path})\n"
+                text += f" -f {filtered_dir}/filtered_sequences.fasta"
+                
+                if args.reduce == 1:
+                    text += f" -c {clusters_dir}/clusters.tsv {src_path})\n"
+                else:
+                    text += f" {src_path})\n"
             
             else:
                 fasta = Path(args.fasta_cand).absolute()
-                text += f" -f {fasta} "
+                text += f" -f {fasta}"
                 
-                if args.start == "clustering":
-                    text += f"-c {clusters_dir}/clusters.tsv)\n"
-                elif args.start == "selection":
-                    clusters = Path(args.clusters).absolute()
-                    text += f"-c {clusters})\n"
+                if args.reduce == 1:
+                    if args.start == "clustering":
+                        text += f" -c {clusters_dir}/clusters.tsv {src_path})\n"
+                    elif args.start == "selection":
+                        clusters = Path(args.clusters).absolute()
+                        text += f" -c {clusters} {src_path})\n"
+                else:
+                    text += f" {src_path})\n"
             
         else:
             if args.start in ["blastp", "filter"]:
                 text += f"python {src_path} -o {args.outdir} -f {filtered_dir}/"
-                text += f"filtered_sequences.fasta --clusters {clusters_dir}/"
-                text += "clusters.tsv\n"
+                text += "filtered_sequences.fasta" 
+                if args.reduce == 1:
+                    text += f" --clusters {clusters_dir}/clusters.tsv\n"
+                else:
+                    text += "\n"
 
             else:
                 fasta = Path(args.fasta_cand).absolute()
-                text += f"python {src_path} -o {args.outdir} -f {fasta} "
-                if args.start == "clustering":
-                    text += f"--clusters {cluster_tsv}/clusters.tsv\n"
-                elif args.start == "selection":
-                    clusters = Path(args.clusters).absolute()
-                    text += f"--clusters {clusters}\n"
+                text += f"python {src_path} -o {args.outdir} -f {fasta}"
+                if args.reduce == 1:
+                    if args.start == "clustering":
+                        text += f" --clusters {cluster_tsv}/clusters.tsv\n"
+                    elif args.start == "selection":
+                        clusters = Path(args.clusters).absolute()
+                        text += f" --clusters {clusters}\n"
+                else:
+                    text += "\n"
     
     return text
             
@@ -824,8 +837,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s - %(asctime)s - %(message)s ")
     
-    
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(usage="%(prog)s -c -q [ options ]")
     parser.add_argument("-o", '--outdir', type=str, default=Path.cwd(), metavar="",
                         help="Output directory [default: './']")
     parser.add_argument("-s", "--start", type=str, metavar="", default="blastp",
@@ -887,6 +899,10 @@ if __name__ == "__main__":
     phylo_opt.add_argument("-p", "--phylo",type=int, choices=[0,1], default=1,
                            metavar="", help="1: generate a msa and a phylogenetic"
                            " tree, 0: does not perform the step [default: 1]")
+    phylo_opt.add_argument("-r", "--reduce",type=int, choices=[0,1], default=1,
+                           metavar="", help="1: Builds the tree using only the "
+                           "representative sequences of each cluster, 0: uses "
+                           "all the sequences [default: 1]")
     
     data_opt = parser.add_argument_group("Required if --start equals to"
                                          " 'filter', 'clustering' or 'selection'",
