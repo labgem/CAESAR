@@ -50,11 +50,11 @@ def read_yaml_config(config_path):
     
     return db_path, mail
 
-def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
+def filter_sequence_properties(data_file, pid, cov, min_len, max_len):
     """Filters sequences based on length, %id and %cov
 
     Args:
-        blastp_file (Path): The path of blastp output
+        data_file (Path): The path of blastp output
         pid (float): %id treshold
         cov (float): %cov treshold
         min_len (int): minmum length
@@ -71,7 +71,7 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
     map_blastp = {}
     map_seq = {}
     
-    with open(blastp_file, "r") as f:
+    with open(data_file, "r") as f:
         for line in f:
             ls = line.split()
             p = float(ls[5])
@@ -103,7 +103,7 @@ def filter_sequence_properties(blastp_file, pid, cov, min_len, max_len):
             # gets the source database
             else:
                 seq_id = ls[2]
-                source = re.search("matches_(.+?)\\.tsv", blastp_file.name).group(1).lower()
+                source = re.search("matches_(.+?)\\.tsv", data_file.name).group(1).lower()
                 
                 try:
                     map_seq[source].add(seq_id)
@@ -390,9 +390,9 @@ if __name__ == "__main__":
     logging.info(f"selected superkingdoms: {args.tax}")
 
     if Path(args.data).is_dir():
-        blastp_list_file = Path(args.data).glob("matches*.tsv")
+        data_list_file = Path(args.data).glob("matches*.tsv")
     elif Path(args.data).is_file():
-        blastp_list_file = [Path(args.data)]
+        data_list_file = [Path(args.data)]
     else:
         logging.error(f"'{args.data}' was not found")
         sys.exit(1)
@@ -404,9 +404,9 @@ if __name__ == "__main__":
     start = datetime.datetime.now()
     
     # Reads blastp output and filters on %id %cov and size
-    for blastp_file in blastp_list_file:
-        logging.info(blastp_file.name)
-        seq, blastp_lines = filter_sequence_properties(blastp_file=blastp_file,
+    for data_file in data_list_file:
+        logging.info(data_file.name)
+        seq, blastp_lines = filter_sequence_properties(data_file=data_file,
                                                            pid=args.id,
                                                            cov=args.cov,
                                                            max_len=args.max,
