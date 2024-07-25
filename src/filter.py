@@ -295,7 +295,7 @@ def read_genpept(handle, taxon_pattern):
                             except AttributeError:
                                 continue
         
-        if cds == True:
+        if cds is True:
             seq_id = elem['GBSeq_accession-version']
             single_fasta = f">{seq_id} {elem['GBSeq_definition']}"
             single_fasta = single_fasta.replace("[", "OS=")
