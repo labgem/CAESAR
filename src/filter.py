@@ -64,7 +64,7 @@ def filter_sequence_properties(data_file, pid, cov, min_len, max_len):
         map_seq (dict): as key the db where come from the sequences and a the
         set of sequence id as value
         
-        blastp_lines (dict): as key the sequence ID and the corresponding lines
+        map_blastp (dict): as key the sequence ID and the corresponding lines
         in blastp output as value
     """
     
@@ -117,6 +117,103 @@ def filter_sequence_properties(data_file, pid, cov, min_len, max_len):
                 map_blastp[seq_id] = line
     
     return map_seq, map_blastp
+
+def filter_hmm_properties(data_file, cov, min_len, max_len, db_path):
+    """Filters hits based on sequence lenght and hmm coverage
+
+    Args:
+        data_file (Path): the path of hits.domtbl
+        cov (float): %cov treshold
+        min_len (int): minmum length
+        max_len (int): maximum length
+        db_path (dict): path of the databases
+
+    Returns:
+        map_seq (dict): as key the db where come from the sequences and a the
+        set of sequence id as value
+        
+        map_hmm (dict): as key the sequence ID and the corresponding lines
+        in blastp output as value
+    """
+    
+    map_seq = {}
+    map_hmm = {}
+    
+    with open(data_file, 'r') as f:
+        
+        dom_length = []  # length of each hit domain for a target
+        ali_length = 0  #  sum of aligned domain length
+        
+        for line in f:
+            if line.startswith("#"):
+                continue
+            
+            split_line = line.split()
+            name = split_line[0]
+            tlen = int(split_line[2])
+            query = split_line[3]
+            qlen = int(split_line[5])
+            e_value = float(split_line[6])
+            score = float(split_line[7])
+            hit_id = int(split_line[9])
+            total_hit = int(split_line[10])
+            hmm_from = int(split_line[15])
+            hmm_to = int(split_line[16])
+            
+            if tlen > max_len or tlen < min_len:
+                continue
+            
+            dom_length.append((hmm_to - hmm_from) +1)
+            
+            if hit_id == total_hit:
+                ali_length = sum(dom_length)
+                dom_length = []  # reset the list for the next target
+                
+                if ali_length > qlen:
+                    continue
+                
+                hmm_cov = round(ali_length / qlen, 2) * 100
+                
+                if hmm_cov >= cov:
+                    if 'sp|' in name or "tr|" in name:
+                        seq_id = re.search("\\|(\\w+)\\|", name).group(1)
+                        try:
+                            map_seq["uniprot"].add(seq_id)
+                        except KeyError:
+                            map_seq["uniprot"] = set()
+                            map_seq["uniprot"].add(seq_id)
+                            
+                        data = f"{seq_id}\t{tlen}\t{query}\t{score:.1f}\t{e_value:.2e}"
+                        data += f"\t{hmm_cov}\n"
+                        try:
+                            map_hmm[seq_id] += data
+                        except KeyError:
+                            map_hmm[seq_id] = data
+                        
+                    else:
+                        source = ""
+                        for db in db_path:
+                            if "faa" in db_path[db]:
+                                prefix = Path(db_path[db]['faa']).stem
+                                if prefix in data_file.stem:
+                                    source = db
+                                    break
+
+                        try:
+                            map_seq[source].add(name)
+                        except KeyError:
+                            map_seq[source] = set()
+                            map_seq[source].add(name)
+                            
+                        data = f"{name}\t{tlen}\t{query}\t{score:.1f}\t{e_value:.2e}"
+                        data += f"\t{hmm_cov}\n"
+                        try:
+                            map_hmm[name] += data
+                        except KeyError:
+                            map_hmm[name] = data
+                                                     
+                                    
+    return map_seq, map_hmm
 
 def uniprotkb_accessions(query, data_type):
     """Requests uniprotkb rest api
@@ -390,7 +487,8 @@ if __name__ == "__main__":
     logging.info(f"selected superkingdoms: {args.tax}")
 
     if Path(args.data).is_dir():
-        data_list_file = Path(args.data).glob("matches*.tsv")
+        data_list_file = [f for ext in ['tsv', "domtbl"]
+                          for f in Path(args.data).glob("*."+ext)]
     elif Path(args.data).is_file():
         data_list_file = [Path(args.data)]
     else:
@@ -398,7 +496,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     map_seq = {}
-    blastp_map = {}
+    data_map = {}
     text = "## Blastp ##\n"
     
     start = datetime.datetime.now()
@@ -406,26 +504,33 @@ if __name__ == "__main__":
     # Reads blastp output and filters on %id %cov and size
     for data_file in data_list_file:
         logging.info(data_file.name)
-        seq, blastp_lines = filter_sequence_properties(data_file=data_file,
-                                                           pid=args.id,
-                                                           cov=args.cov,
-                                                           max_len=args.max,
-                                                           min_len=args.min)
+        if data_file.suffix == ".tsv":
+            seq, map_data_line = filter_sequence_properties(data_file=data_file,
+                                                            pid=args.id,
+                                                            cov=args.cov,
+                                                            max_len=args.max,
+                                                            min_len=args.min)
         
+        elif data_file.suffix == ".domtbl":
+            seq, map_data_line = filter_hmm_properties(data_file,
+                                                      cov=args.cov,
+                                                      max_len=args.max,
+                                                      min_len=args.min,
+                                                      db_path=db_path)
         # Key correspond to the sources database
         key = list(seq.keys())[0]
         if key in map_seq:
             map_seq[key].update(seq[key])
         else:
             map_seq.update(seq)
-        blastp_map.update(blastp_lines)
+        data_map.update(map_data_line)
     
     for i, key in enumerate(map_seq):
         fasta_file = outdir / "filtered_sequences.fasta"
         fasta = ""
         
-        blastp_filtered_file = outdir / "filtered_data.tsv"
-        blastp_filtered_lines = ""
+        data_filtered_file = outdir / "filtered_data.tsv"
+        data_filtered_lines = ""
         
         sources_file = outdir / "sources.txt"
         sources_text = ""
@@ -465,7 +570,7 @@ if __name__ == "__main__":
             # Get the blastp lines for the checked sequences and update the
             # lines to write in sources.txt                
             for ic in ids_checked:
-                blastp_filtered_lines += blastp_map[ic]
+                data_filtered_lines += data_map[ic]
                 sources_text += f"{ic} {key}\n"
 
                 # Directly get the fasta for each sequence id
@@ -478,7 +583,7 @@ if __name__ == "__main__":
                 logging.info(f"{n_seq_id}/{n_seq_id}")
                 
                 for ic in map_seq[key]:
-                    blastp_filtered_lines += blastp_map[ic]
+                    data_filtered_lines += data_map[ic]
                     sources_text += f"{ic} {key}\n"
                 '''
         elif re.match("nr", key):
@@ -525,7 +630,7 @@ if __name__ == "__main__":
             text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
                   
             for ic in ids_checked:
-                blastp_filtered_lines += blastp_map[ic]
+                data_filtered_lines += data_map[ic]
                 sources_text += f"{ic} {key}\n"
             
         elif re.match("cloaca", key):
@@ -581,7 +686,7 @@ if __name__ == "__main__":
             text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
             
             for ic in ids_checked:
-                blastp_filtered_lines += blastp_map[ic]
+                data_filtered_lines += data_map[ic]
                 sources_text += f"{ic} {key}\n"
                 
             cloaca_filtered_file.unlink()
@@ -617,7 +722,7 @@ if __name__ == "__main__":
                 text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
                 
                 for ic in ids_checked:
-                    blastp_filtered_lines += blastp_map[ic]
+                    data_filtered_lines += data_map[ic]
                     sources_text += f"{ic} {key}\n"
         
         else:
@@ -646,10 +751,10 @@ if __name__ == "__main__":
             text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
             
             for ic in ids_checked:
-                    blastp_filtered_lines += blastp_map[ic]
+                    data_filtered_lines += data_map[ic]
                     sources_text += f"{ic} {key}\n"
         
-        write_data(fasta_file,fasta,blastp_filtered_file,blastp_filtered_lines,
+        write_data(fasta_file,fasta,data_filtered_file,data_filtered_lines,
                    sources_file, sources_text, i)
     
     text += "\n"
