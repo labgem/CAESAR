@@ -455,7 +455,7 @@ if __name__ == "__main__":
             text += f"{len(ids_checked)} unique ids from {key} after filtering\n"
             
             # Get fasta for sequences that pass the filter
-            logging.info(f"retrieves fasta for uniprot sequences")
+            logging.info("retrieves fasta for uniprot sequences")
             for j in range(0, len(ids_checked), 500):
                 logging.info(f"{j}/{len(ids_checked)}")
                 sequences = uniprotkb_accessions(ids_checked[j:j+500], "fasta")
