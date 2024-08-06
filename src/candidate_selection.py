@@ -426,7 +426,7 @@ def read_fasta_candidates(fasta_file):
                 
     return all_seq
 
-def get_query_information(all_seq, data_file):
+def get_blast_informartion(all_seq, data_file):
     """Reads blast outputs to get information between candiates and queries
     (reference sequences)
 
@@ -465,9 +465,6 @@ def get_query_information(all_seq, data_file):
                 seq_id = re.search("\\|(\\w+)\\|", split_line[2]).group(1)
             else:
                 seq_id = split_line[2]
-            
-            if seq_id == "A0A7L4X2M8":
-                print(line)
             
             if all_seq[seq_id].query is None:
                 
@@ -1214,7 +1211,7 @@ if __name__ == "__main__":
     if args.blast_data is not None:
         data_file = Path(args.blast_data)
     
-        all_seq, ref_candidate_count = get_query_information(all_seq, data_file)
+        all_seq, ref_candidate_count = get_blast_informartion(all_seq, data_file)
     elif args.hmm_data is not None:
         pass
     else:
