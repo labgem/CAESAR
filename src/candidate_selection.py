@@ -498,6 +498,51 @@ def get_blast_informartion(all_seq, data_file):
                             
     return all_seq, ref_candidate_count
 
+def get_hmm_information(all_seq, data_file):
+    
+    ref_candidate_count = {}
+    
+    with open(data_file) as f:
+        for line in f:
+            split_line = line.split()
+            query = split_line[2]
+            score = split_line[3]
+            e_value = split_line[4]
+            cov = split_line[5]
+            
+            query_info = (query, cov, score, e_value)
+            
+            if query not in ref_candidate_count:
+                ref_candidate_count[query] = {"total":0, "selected":0}
+            
+            if "sp|" in split_line[0] or "tr|" in split_line[0]:
+                seq_id = re.search("\\|(\\w+)\\|", split_line[0]).group(1)
+            else:
+                seq_id = split_line[0]
+                
+            if all_seq[seq_id].query is None:
+                
+                all_seq[seq_id].set_query_info(query_info)
+                ref_candidate_count[query]["total"] += 1
+            else:
+                
+                queryB = all_seq[seq_id].query[0]
+                covB = all_seq[seq_id].query[1]
+                evalueB = all_seq[seq_id].query[3]
+                
+                if float(e_value) < float(evalueB):
+                    all_seq[seq_id].set_query_info(query_info)
+                    ref_candidate_count[queryB]["total"] -= 1
+                    ref_candidate_count[query]["total"] += 1
+                    
+                elif float(e_value) == float(evalueB):
+                    if float(cov) > float(covB):
+                        all_seq[seq_id].set_query_info(query_info)
+                        ref_candidate_count[queryB]["total"] -= 1
+                        ref_candidate_count[query]["total"] += 1
+    
+    return all_seq, ref_candidate_count
+
 def preselect_candidates(all_seq, clusters, sources, strain_library):
     """Selects candidates according to the content of the strain library
 
@@ -982,7 +1027,8 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
             
             all_candidate_ids.append(name)
             
-            if all_cand[name].query is not None:
+            # blast data
+            if all_cand[name].query is not None and len(all_cand[name].query) == 7:
                 query_name = all_cand[name].query[0]  # reference sequence name
                 pident = all_cand[name].query[1]  # %id
                 qcovhsp = all_cand[name].query[2]  # %cov
@@ -990,6 +1036,18 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
                 mismatch = all_cand[name].query[4]  # %mismatch
                 gaps = all_cand[name].query[5]  # %gaps
                 e_value = all_cand[name].query[6]  # e-value
+            
+                ref_candidate_count[query_name]["selected"] += 1
+            
+            # hmm data
+            elif all_cand[name].query is not None and len(all_cand[name].query) == 4:
+                query_name = all_cand[name].query[0]  # reference sequence name
+                pident = None  # %id
+                qcovhsp = all_cand[name].query[1]  # %cov
+                positives = None  # %positives
+                mismatch = None  # %mismatch
+                gaps = None  # %gaps
+                e_value = all_cand[name].query[3]  # e-value
             
                 ref_candidate_count[query_name]["selected"] += 1
             
@@ -1210,10 +1268,12 @@ if __name__ == "__main__":
     
     if args.blast_data is not None:
         data_file = Path(args.blast_data)
-    
         all_seq, ref_candidate_count = get_blast_informartion(all_seq, data_file)
+        
     elif args.hmm_data is not None:
-        pass
+        data_file = Path(args.hmm_data)
+        all_seq, ref_candidate_count = get_hmm_information(all_seq, data_file)
+        
     else:
         ref_candidate_count = {}
 
