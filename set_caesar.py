@@ -266,6 +266,47 @@ def set_blastp(slurm, parallel, args, db_path):
             
     return text
 
+def set_hmmsearch(slurm, parallel, args, db_path):
+    """Builds the command for hmmsearch
+
+    Args:
+        slurm (bool): need to adapt the output script to the slurm task scheduler
+        parallel (bool): uses gnu parallel
+        args (argparse.Namespace): the object containing all arguments
+        db_path (dict): databases access paths
+
+    Returns:
+        text (str): output script instructions
+    """
+    
+    # Path to the blastp.sh script
+    main_path = Path(__file__).absolute()
+    parent_path = main_path.parent
+    src_path = parent_path / "src" / "hmm_search.sh"
+    
+    # Set the output directory of hmm_search.sh
+    hmm_dir = Path(args.outdir).absolute() / "hmmsearch"
+    
+    fasta_db = []
+    for db in db_path:
+        if "faa" in db_path[db]:
+            fasta_db.append(db_path[db]["faa"])
+            
+    fasta_db = " ".join(fasta_db)
+    
+    text = "# Hmmsearch\n"
+    if slurm == 1:
+        pass
+    else:
+        text += f"bash {src_path} -t {args.threads} -q {args.query} -o {hmm_dir}"
+        
+        if parallel is True:
+            text += f" -p {fasta_db}\n\n"
+        else:
+            text += f" {fasta_db}\n\n"
+            
+    return text
+
 def check_blastp_options(pid, cov, min_len, max_len, tax):
     """Checks the blastp options
 
@@ -494,7 +535,7 @@ def set_candidate_selection(slurm, args):
     if slurm is True:
         sh_path = src_path.parent / "candidate_selection.sh"
         
-        if args.start in ["blastp", "filter"]:
+        if args.start in ["blastp", "hmmsearch", "filter"]:
             text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
             text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
             text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
@@ -543,7 +584,7 @@ def set_candidate_selection(slurm, args):
         
     else:
         # The paths have been written by the pipeline
-        if args.start in ["blastp", "filter"]:
+        if args.start in ["blastp", "hmmsearch", "filter"]:
             text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
             text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
             text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
@@ -766,7 +807,7 @@ def set_phylo(slurm, args):
                     text += f" {src_path})\n"
             
         else:
-            if args.start in ["blastp", "filter"]:
+            if args.start in ["blastp", "hmmsearch", "filter"]:
                 text += f"python {src_path} -o {args.outdir} -f {filtered_dir}/"
                 text += "filtered_sequences.fasta" 
                 if args.reduce == 1:
@@ -958,6 +999,9 @@ if __name__ == "__main__":
     if args.start == "blastp":
         caesar_text += set_blastp(slurm, parallel, args, db_path)
         
+    elif args.start == "hmmsearch":
+        caesar_text += set_hmmsearch(slurm, parallel, args, db_path)
+    
     if args.start in ["blastp", 'hmmsearch', "filter"]:
         caesar_text += set_filter(slurm, args)
         
