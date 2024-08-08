@@ -246,7 +246,7 @@ def set_blastp(slurm, parallel, args, db_path):
         text += f"job_blastp=$(sbatch --nodes 1 -c {args.threads} -t 1440"
         text += f" -J caesar_blastp -o %x_%j.log --mem={args.mem} "
         text += f"{src_path} -t {args.threads} -q {args.query} -o {blastp_dir} "
-        text += f"-i {args.blast_id} -c {args.blast_cov} "
+        text += f"-i {args.id} -c {args.cov} "
         
         if parallel is True:
             text += f"-p {dmnd})\n"
@@ -257,7 +257,7 @@ def set_blastp(slurm, parallel, args, db_path):
         
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {blastp_dir}"
-        text += f" -i {args.blast_id} -c {args.blast_cov} "
+        text += f" -i {args.id} -c {args.cov} "
         
         if parallel is True:
             text += f"-p {dmnd}\n\n"
@@ -335,8 +335,8 @@ def set_filter(slurm, args):
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     
     # Checks the blastp options
-    pid = args.blast_id
-    cov = args.blast_cov
+    pid = args.id
+    cov = args.cov
     min_len = args.min_len
     max_len = args.max_len
     tax = args.tax
@@ -801,8 +801,8 @@ def write_summary(args, db_path, outdir):
     text += "python " + " ".join(sys.argv) + "\n\n"
     
     text += "## Options ##\n"
-    text += f"--blast-id: {args.blast_id}\t"
-    text += f"--blast-cov: {args.blast_cov}\t"
+    text += f"--blast-id: {args.id}\t"
+    text += f"--blast-cov: {args.cov}\t"
     text += f"--min-len: {args.min_len}\t"
     text += f"--max-len: {args.max_len}\t"
     text += f"--tax: {args.tax}\n"
@@ -841,7 +841,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", '--outdir', type=str, default=Path.cwd(), metavar="",
                         help="Output directory [default: './']")
     parser.add_argument("-s", "--start", type=str, metavar="", default="blastp",
-                        choices=["blastp", "filter", "clustering",
+                        choices=["blastp", "hmmsearch", "filter", "clustering",
                                  "selection"],
                         help="Selects the inital step: 'blastp', 'filter',"
                         " 'clustering' or 'selection' [default: 'blastp']")
@@ -857,11 +857,13 @@ if __name__ == "__main__":
     required_input.add_argument("-q", "--query", type=str, metavar="",
                                 required=True, help="Set of reference sequences")
     
-    blast_opt = parser.add_argument_group("Blastp options")
-    blast_opt.add_argument("--blast-id", default=30.0, type=float, metavar="",
+    blast_opt = parser.add_argument_group("Search options",
+                                          "--id is used only if --start"
+                                          " is 'blastp'")
+    blast_opt.add_argument("--id", default=30.0, type=float, metavar="",
                            help="Retains only candidates above the specified"
                            " percentage of sequence identity [default: 30.0]")
-    blast_opt.add_argument("--blast-cov", default=80.0, type=float, metavar="",
+    blast_opt.add_argument("--cov", default=80.0, type=float, metavar="",
                            help="Retains only candidates above the specified"
                            " percentage of query cover [default: 80.0]")
     blast_opt.add_argument("--min-len", default=200, type=int, metavar="",
