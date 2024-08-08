@@ -371,8 +371,13 @@ def set_filter(slurm, args):
     parent_path = main_path.parent
     src_path = parent_path / "src" / "filter.py"
     
-    # Set the output directory of filter.py and blastp.sh
-    blastp_dir = Path(args.outdir).absolute() / "blastp"
+    # Set the output directory of filter.py and blastp.sh or hmm_search.sh
+    if args.start == "blastp":
+        search_dir = Path(args.outdir).absolute() / "blastp"
+    
+    elif args.start == "hmmsearch":
+        search_dir = Path(args.outdir).absolute() / "hmmsearch"
+        
     filtered_dir = Path(args.outdir).absolute() / "filtered"
     
     # Checks the blastp options
@@ -389,11 +394,11 @@ def set_filter(slurm, args):
     if slurm is True:
         sh_path = src_path.parent / "filter.sh"
         
-        if args.start == "blastp":
+        if args.start in ["blastp", "hmmsearch"]:
             text += r"job_filter=$(sbatch --dependency=afterok:${id_blastp} "
             text += r"--nodes 1 -c 1 -t 360 -J caesar_filtering -o %x_%j.log "
             text += f"--mem=4G {sh_path} {src_path} -o {filtered_dir} "
-            text += f"-C {args.config} -q {args.query} -d {blastp_dir} "
+            text += f"-C {args.config} -q {args.query} -d {search_dir} "
         
         elif args.start == "filter":
             blastp_path = Path(args.data).absolute()
@@ -407,8 +412,8 @@ def set_filter(slurm, args):
         
     else:
         text += f"python {src_path} -o {filtered_dir} -c {args.config} "
-        if args.start == "blastp":
-            text += f"-q {args.query} -d {blastp_dir} --id {pid} --cov "
+        if args.start in ["blastp", "hmmsearch"]:
+            text += f"-q {args.query} -d {search_dir} --id {pid} --cov "
             
         elif args.start == "filter":
             blastp_path = Path(args.data).absolute()    
@@ -447,7 +452,7 @@ def set_clustering(slurm, args):
     text = "# Diamond clustering\n"
     
     if slurm is True:
-        if args.start in ["blastp", "filter"]:
+        if args.start in ["blastp", "hmmsearch", "filter"]:
             text += r"job_clustering=$(sbatch --dependency=afterok:${id_filter}"
             text += f" --nodes 1 -c {args.threads} -t 360 --mem={args.mem} "
             text += f"-J caesar_clustering -o %x_%j.log {src_path} -o "
@@ -463,7 +468,7 @@ def set_clustering(slurm, args):
         text += "id_clustering=$(echo $job_clustering | grep -oE '[0-9]+')\n\n"
         
     else:
-        if args.start in ["blastp", "filter"]:
+        if args.start in ["blastp", "hmmsearch", "filter"]:
             text += f"bash {src_path} -o {clusters_dir} -f {filtered_dir}/filtered_"
             text += f"sequences.fasta -i {pid} -c {cov} -t {args.threads} -m "
             text += f"{args.mem}\n\n"
