@@ -857,22 +857,22 @@ if __name__ == "__main__":
     required_input.add_argument("-q", "--query", type=str, metavar="",
                                 required=True, help="Set of reference sequences")
     
-    blast_opt = parser.add_argument_group("Search options",
+    search_opt = parser.add_argument_group("Search options",
                                           "--id is used only if --start"
                                           " is 'blastp'")
-    blast_opt.add_argument("--id", default=30.0, type=float, metavar="",
+    search_opt.add_argument("--id", default=30.0, type=float, metavar="",
                            help="Retains only candidates above the specified"
                            " percentage of sequence identity [default: 30.0]")
-    blast_opt.add_argument("--cov", default=80.0, type=float, metavar="",
+    search_opt.add_argument("--cov", default=80.0, type=float, metavar="",
                            help="Retains only candidates above the specified"
                            " percentage of query cover [default: 80.0]")
-    blast_opt.add_argument("--min-len", default=200, type=int, metavar="",
+    search_opt.add_argument("--min-len", default=200, type=int, metavar="",
                            help="Retains only candidates above the specified"
                            " sequence length [default: 200]")
-    blast_opt.add_argument("--max-len", default=1000, type=int, metavar="",
+    search_opt.add_argument("--max-len", default=1000, type=int, metavar="",
                            help="Retains only candidates below the specified"
                            " sequence length [default: 1000]")
-    blast_opt.add_argument("--tax", default="ABE", type=str, metavar="",
+    search_opt.add_argument("--tax", default="ABE", type=str, metavar="",
                            help="Superkingdom filter, A: Archaea, B: Bacteria"
                            " and E: Eukaryota [default: 'ABE']")
     
