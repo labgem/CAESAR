@@ -635,8 +635,8 @@ def checks_optional_file(args):
     start = args.start
     
     # -d, --data
-    # if start blastp, this option isn't allowed
-    if start == "blastp" and args.data is not None:
+    # if start blastp or hmmsearch, this option isn't allowed
+    if start in ["blastp", "hmmsearch"] and args.data is not None:
         logging.error(f"-d, --data option isn't allowed with --start {start}")
         sys.exit(1)
     
@@ -661,8 +661,8 @@ def checks_optional_file(args):
             sys.exit(1) 
     
     # -f, --fasta-cand
-    # if start at the blastp or filter step, this option isn't allowed
-    if start in ["blastp", "filter"] and args.fasta_cand is not None:
+    # if start at the blastp, hmmsearch or filter step, this option isn't allowed
+    if start in ["blastp", "hmmsearch", "filter"] and args.fasta_cand is not None:
         logging.error(f"-d, --data option isn't allowed with --start {start}")
         sys.exit(1)
         
@@ -679,8 +679,8 @@ def checks_optional_file(args):
             sys.exit(1)
     
     # --sources
-    # if start at the blastp or filter step, this option isn't allowed
-    if start in ["blastp", "filter"] and args.sources is not None:
+    # if start at the blastp, hmmsearch or filter step, this option isn't allowed
+    if start in ["blastp", "hmmsearch" "filter"] and args.sources is not None:
         logging.error(f"--sources option isn't allowed with --start {start}")
         sys.exit(1)
     
@@ -697,8 +697,9 @@ def checks_optional_file(args):
             sys.exit(1)
     
     # --clusters
-    # if start at the blastp, filter or clustering step, this option isn't allowed
-    if start in ["blastp", "filter", "clustering"] and args.clusters is not None:
+    # if start at the blastp, hmmsearch, filter or clustering step, 
+    # this option isn't allowed
+    if start in ["blastp", "hmmsearch", "filter", "clustering"] and args.clusters is not None:
         logging.error(f"--clusters option isn't allowed with --start {start}")
         sys.exit(1)
 
@@ -957,13 +958,13 @@ if __name__ == "__main__":
     if args.start == "blastp":
         caesar_text += set_blastp(slurm, parallel, args, db_path)
         
-    if args.start in ["blastp", "filter"]:
+    if args.start in ["blastp", 'hmmsearch', "filter"]:
         caesar_text += set_filter(slurm, args)
         
-    if args.start in  ["blastp", "filter", "clustering"]:
+    if args.start in  ["blastp", "hmmsearch", "filter", "clustering"]:
         caesar_text += set_clustering(slurm, args)
     
-    if args.start in  ["blastp", "filter", "clustering", "selection"]:
+    if args.start in  ["blastp", "hmmsearch", "filter", "clustering", "selection"]:
         caesar_text += set_candidate_selection(slurm, args)
         caesar_text += set_phylo(slurm, args)
     
