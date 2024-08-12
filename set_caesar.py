@@ -545,8 +545,11 @@ def set_candidate_selection(slurm, args):
             text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
             text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
             text += f" -f {filtered_dir}/filtered_sequences.fasta -c {clusters_dir}"
-            text += f"/clusters.tsv -s {filtered_dir}/sources.txt -d {filtered_dir}"
-            text += f"/filtered_data.tsv -g {gc}"
+            text += f"/clusters.tsv -s {filtered_dir}/sources.txt "
+            if args.start == "blastp":
+                text += f"--data {filtered_dir}/filtered_data.tsv -g {gc}"
+            elif args.start == "hmmsearch":
+                text += f"--data {filtered_dir}/filtered_data.tsv -g {gc}"
             
         else:
             fasta = Path(args.fasta_cand).absolute()
@@ -593,7 +596,10 @@ def set_candidate_selection(slurm, args):
             text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
             text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
             text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
-            text += f"-d {filtered_dir}/filtered_data.tsv --gc {gc}"
+            if args.start == "blastp":
+                text += f"--data {filtered_dir}/filtered_data.tsv --gc {gc}"
+            elif args.start == "hmmsearch":
+                text += f"--data {filtered_dir}/filtered_data.tsv --gc {gc}"
         
         # All or some paths have been provided by the user
         else:
@@ -616,7 +622,7 @@ def set_candidate_selection(slurm, args):
             if args.data is not None and Path(args.data).is_file():
                 data = Path(args.data).absolute()
                     
-                text += f" -d {data} "
+                text += f" --data {data} "
         
         if cov_per_cluster is None:
             text += f" -n {n}"
