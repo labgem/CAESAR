@@ -1137,7 +1137,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
     all_candidate_ids_file = outdir / "all_candidates_ids.txt"
     all_candidate_ids_file.write_text("\n".join(all_candidate_ids))
     
-    if args.blast_data is not None or args.hmm_data is not None:
+    if args.data is not None:
         review_ref_file = outdir / "review_reference_sequences.tsv"
         with review_ref_file.open("w") as f:
             f.write("Reference\tTotal\tSelected\n")
@@ -1205,11 +1205,17 @@ if __name__ == "__main__":
     parser.add_argument("--sources", type=str, metavar="", required=True,
                         help="sources file indicating the sources database of each"
                         "sequences")
+    '''
     data_parser = parser.add_mutually_exclusive_group()
     data_parser.add_argument("--blast-data", type=str, metavar="",
                              help="filtered blast data")
     data_parser.add_argument("--hmm-data", type=str, metavar="",
                              help="filtered hmmsearch domains data")
+    '''
+    
+    parser.add_argument("-d", "--data", type=str, metavar="",
+                        help="fltered blast data or filtered hmmsearch data")
+    
     parser.add_argument("-u", "--update", type=str, metavar="",
                         help="file containing a list of identifiers, the groups"
                         " in which they are found will be excluded")
@@ -1266,6 +1272,26 @@ if __name__ == "__main__":
     fasta_file = Path(args.fasta)
     all_seq = read_fasta_candidates(fasta_file)
     
+    
+    if args.data is not None:
+        # Checks the first line to know if it's filtered blast data or 
+        # filtered hmmsearch data
+        data_file = Path(args.data)
+        column_count = 0
+        with open(data_file, 'r') as f:
+            for line in f:
+                column_count = len(line.split())
+                break
+        
+        if column_count == 11:
+            all_seq, ref_candidate_count = get_blast_informartion(all_seq, data_file)
+        else:
+            all_seq, ref_candidate_count = get_hmm_information(all_seq, data_file)
+    
+    else:
+        ref_candidate_count = {}
+    
+    '''
     if args.blast_data is not None:
         data_file = Path(args.blast_data)
         all_seq, ref_candidate_count = get_blast_informartion(all_seq, data_file)
@@ -1276,6 +1302,7 @@ if __name__ == "__main__":
         
     else:
         ref_candidate_count = {}
+    '''
 
     logging.info("Preselect candidate based on strain library")
     start_presel = datetime.datetime.now()
