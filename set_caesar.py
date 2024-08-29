@@ -301,9 +301,9 @@ def set_hmmsearch(slurm, parallel, args, db_path):
         text += f" -t {args.threads} -q {args.query} -o {hmm_dir}"
         
         if parallel is True:
-            text += f" -p {fasta_db}\n"
+            text += f" -p {fasta_db})\n"
         else:
-            text += f" {fasta_db}\n"
+            text += f" {fasta_db})\n"
         
         text += "id_search=$(echo $job_search | grep -oE '[0-9]+')\n\n"
         
