@@ -243,7 +243,7 @@ def set_blastp(slurm, parallel, args, db_path):
     
     text = "# Diamond blastp\n"
     if slurm == 1:
-        text += f"job_blastp=$(sbatch --nodes 1 -c {args.threads} -t 1440"
+        text += f"job_search=$(sbatch --nodes 1 -c {args.threads} -t 1440"
         text += f" -J caesar_blastp -o %x_%j.log --mem={args.mem} "
         text += f"{src_path} -t {args.threads} -q {args.query} -o {blastp_dir} "
         text += f"-i {args.id} -c {args.cov} "
@@ -253,7 +253,7 @@ def set_blastp(slurm, parallel, args, db_path):
         else:
             text += f"{dmnd})\n"
         
-        text += "id_blastp=$(echo $job_blastp | grep -oE '[0-9]+')\n\n"
+        text += "id_search=$(echo $job_blastp | grep -oE '[0-9]+')\n\n"
         
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {blastp_dir}"
@@ -296,7 +296,7 @@ def set_hmmsearch(slurm, parallel, args, db_path):
     
     text = "# Hmmsearch\n"
     if slurm == 1:
-        text += f"job_hmmsearch=$(sbatch --nodes 1 -c {args.threads} -t 1440 "
+        text += f"job_search=$(sbatch --nodes 1 -c {args.threads} -t 1440 "
         text += f"-J caesar_hmmsearch -o %x_%j.log --mem={args.mem} {src_path} "
         text += f" -t {args.threads} -q {args.query} -o {hmm_dir}"
         
@@ -305,7 +305,7 @@ def set_hmmsearch(slurm, parallel, args, db_path):
         else:
             text += f" {fasta_db}\n"
         
-        text += "id_hmmsearch=$(echo $job_hmmsearch | grep -oE '[0-9]+')\n\n"
+        text += "id_search=$(echo $job_hmmsearch | grep -oE '[0-9]+')\n\n"
         
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {hmm_dir}"
@@ -405,7 +405,7 @@ def set_filter(slurm, args):
         sh_path = src_path.parent / "filter.sh"
         
         if args.start in ["blastp", "hmmsearch"]:
-            text += r"job_filter=$(sbatch --dependency=afterok:${id_blastp} "
+            text += r"job_filter=$(sbatch --dependency=afterok:${id_search} "
             text += r"--nodes 1 -c 1 -t 360 -J caesar_filtering -o %x_%j.log "
             text += f"--mem=4G {sh_path} {src_path} -o {filtered_dir} "
             text += f"-C {args.config} -q {args.query} -d {search_dir} "
