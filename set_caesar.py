@@ -253,7 +253,7 @@ def set_blastp(slurm, parallel, args, db_path):
         else:
             text += f"{dmnd})\n"
         
-        text += "id_search=$(echo $job_blastp | grep -oE '[0-9]+')\n\n"
+        text += "id_search=$(echo $job_search | grep -oE '[0-9]+')\n\n"
         
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {blastp_dir}"
@@ -305,7 +305,7 @@ def set_hmmsearch(slurm, parallel, args, db_path):
         else:
             text += f" {fasta_db}\n"
         
-        text += "id_search=$(echo $job_hmmsearch | grep -oE '[0-9]+')\n\n"
+        text += "id_search=$(echo $job_search | grep -oE '[0-9]+')\n\n"
         
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {hmm_dir}"
