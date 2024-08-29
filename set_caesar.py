@@ -906,8 +906,8 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--start", type=str, metavar="", default="blastp",
                         choices=["blastp", "hmmsearch", "filter", "clustering",
                                  "selection"],
-                        help="Selects the inital step: 'blastp', 'filter',"
-                        " 'clustering' or 'selection' [default: 'blastp']")
+                        help="Selects the inital step: 'blastp', 'hmmsearch', "
+                        "'filter', 'clustering' or 'selection' [default: 'blastp']")
     parser.add_argument("-t", "--threads", type=int, metavar="", default=4,
                         help="Number of CPU threads for diamond processes"
                         " [default: 4]")
