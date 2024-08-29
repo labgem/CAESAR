@@ -296,7 +296,17 @@ def set_hmmsearch(slurm, parallel, args, db_path):
     
     text = "# Hmmsearch\n"
     if slurm == 1:
-        pass
+        text += f"job_hmmsearch=$(sbatch --nodes 1 -c {args.threads} -t 1440 "
+        text += f"-J caesar_hmmsearch -o %x_%j.log --mem={args.mem} {src_path} "
+        text += f" -t {args.threads} -q {args.query} -o {hmm_dir}"
+        
+        if parallel is True:
+            text += f" -p {fasta_db}\n"
+        else:
+            text += f" {fasta_db}\n"
+        
+        text += "id_hmmsearch=$(echo $job_hmmsearch | grep -oE '[0-9]+')\n\n"
+        
     else:
         text += f"bash {src_path} -t {args.threads} -q {args.query} -o {hmm_dir}"
         
