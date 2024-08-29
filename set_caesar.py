@@ -806,7 +806,7 @@ def set_phylo(slurm, args):
             text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_phylo -o "
             text += f"%x_%j.log {sh_path} -o {args.outdir}"
             
-            if args.start in ["blastp", "filter"]:
+            if args.start in ["blastp", "hmmsearch", "filter"]:
                 text += f" -f {filtered_dir}/filtered_sequences.fasta"
                 
                 if args.reduce == 1:
