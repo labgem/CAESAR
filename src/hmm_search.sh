@@ -32,7 +32,7 @@ Run_hmmsearch(){
     source=$(echo $db | grep -oE '([A-Za-z0-9_]+)\.(fasta|faa|fa)' | cut -d . -f 1)
     source=$(echo "${source,,}")
 
-    echo hmmsearch --cpu $n --noali --domtblout $outdir/hits_${source}.domtbl $query $db
+    hmmsearch --cpu $n --noali --domtblout $outdir/hits_${source}.domtbl $query $db
 }
 
 export -f Run_hmmsearch
