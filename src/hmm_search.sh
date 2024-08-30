@@ -29,10 +29,10 @@ Run_hmmsearch(){
     query=$4
     outdir=$5
     
-    source=$(echo $db | grep -oE '([A-Za-z0-9_]+)\.fasta' | cut -d . -f 1)
+    source=$(echo $db | grep -oE '([A-Za-z0-9_]+)\.(fasta|faa|fa)' | cut -d . -f 1)
     source=$(echo "${source,,}")
 
-    hmmsearch --cpu $n --noali --domtblout $outdir/hits_${source}.domtbl $query $db
+    echo hmmsearch --cpu $n --noali --domtblout $outdir/hits_${source}.domtbl $query $db
 }
 
 export -f Run_hmmsearch
