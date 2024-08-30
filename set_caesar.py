@@ -556,10 +556,7 @@ def set_candidate_selection(slurm, args):
             text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
             text += f" -f {filtered_dir}/filtered_sequences.fasta -c {clusters_dir}"
             text += f"/clusters.tsv -s {filtered_dir}/sources.txt "
-            if args.start == "blastp":
-                text += f"--data {filtered_dir}/filtered_data.tsv -g {gc}"
-            elif args.start == "hmmsearch":
-                text += f"--data {filtered_dir}/filtered_data.tsv -g {gc}"
+            text += f"-d {filtered_dir}/filtered_data.tsv -g {gc}"
             
         else:
             fasta = Path(args.fasta_cand).absolute()
@@ -606,10 +603,7 @@ def set_candidate_selection(slurm, args):
             text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
             text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
             text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
-            if args.start == "blastp":
-                text += f"--data {filtered_dir}/filtered_data.tsv --gc {gc}"
-            elif args.start == "hmmsearch":
-                text += f"--data {filtered_dir}/filtered_data.tsv --gc {gc}"
+            text += f"--data {filtered_dir}/filtered_data.tsv --gc {gc}"
         
         # All or some paths have been provided by the user
         else:
