@@ -118,7 +118,7 @@ def filter_sequence_properties(data_file, pid, cov, min_len, max_len):
     
     return map_seq, map_blastp
 
-def filter_hmm_properties(data_file, cov, min_len, max_len, db_path):
+def filter_hmm_properties(data_file, cov, min_len, max_len, treshold, db_path):
     """Filters hits based on sequence lenght and hmm coverage
 
     Args:
@@ -126,6 +126,7 @@ def filter_hmm_properties(data_file, cov, min_len, max_len, db_path):
         cov (float): %cov treshold
         min_len (int): minmum length
         max_len (int): maximum length
+        treshold (float): score treshold
         db_path (dict): path of the databases
 
     Returns:
@@ -138,7 +139,7 @@ def filter_hmm_properties(data_file, cov, min_len, max_len, db_path):
     
     map_seq = {}
     map_hmm = {}
-    
+        
     with open(data_file, 'r') as f:
         
         dom_length = []  # length of each hit domain for a target
@@ -174,7 +175,7 @@ def filter_hmm_properties(data_file, cov, min_len, max_len, db_path):
                 
                 hmm_cov = round(ali_length / qlen, 2) * 100
                 
-                if hmm_cov >= cov:
+                if (hmm_cov >= cov) and (score >= treshold):
                     if 'sp|' in name or "tr|" in name:
                         seq_id = re.search("\\|(\\w+)\\|", name).group(1)
                         try:
@@ -210,8 +211,7 @@ def filter_hmm_properties(data_file, cov, min_len, max_len, db_path):
                         try:
                             map_hmm[name] += data
                         except KeyError:
-                            map_hmm[name] = data
-                                                     
+                            map_hmm[name] = data              
                                     
     return map_seq, map_hmm
 
@@ -474,6 +474,7 @@ if __name__ == "__main__":
     parser.add_argument("--tax", type=str, metavar="", default="ABE",
                         help="selected superkingdoms to filter candidate sequences"
                         ", A=Archae, B=Bacteria, E=Eukaryota [default: ABE]")
+    parser.add_argument("--hmm-score", type=float, default=0.0)
     
     args = parser.parse_args()
 
@@ -516,6 +517,7 @@ if __name__ == "__main__":
                                                       cov=args.cov,
                                                       max_len=args.max,
                                                       min_len=args.min,
+                                                      treshold=args.hmm_score,
                                                       db_path=db_path)
         # Key correspond to the sources database
         key = list(seq.keys())[0]
