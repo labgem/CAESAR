@@ -396,6 +396,7 @@ def set_filter(slurm, args):
     min_len = args.min_len
     max_len = args.max_len
     tax = args.tax
+    score = args.hmm_score
     
     check_blastp_options(pid, cov, min_len, max_len, tax)
     
@@ -417,7 +418,7 @@ def set_filter(slurm, args):
             text += f"--mem=4G {sh_path} {src_path} -o {filtered_dir} " 
             text += f"-C {args.config} -q {args.query} -d {blastp_path} "
             
-        text += f"-i {pid} -c {cov} -l {min_len} -L {max_len} -t {tax})\n"
+        text += f"-i {pid} -c {cov} -s {score} -l {min_len} -L {max_len} -t {tax})\n"
         text += "id_filter=$(echo $job_filter | grep -oE '[0-9]+')\n\n"
         
     else:
@@ -429,7 +430,8 @@ def set_filter(slurm, args):
             blastp_path = Path(args.data).absolute()    
             text += f"-q {args.query} -d {blastp_path} --id {pid} --cov "
             
-        text += f"{cov} --min {min_len} --max {max_len} --tax {tax}\n\n"
+        text += f"{cov} --hmm-score {score} --min {min_len} --max {max_len} "
+        text += f"--tax {tax}\n\n"
 
     return text
 
@@ -916,7 +918,8 @@ if __name__ == "__main__":
     
     search_opt = parser.add_argument_group("Search options",
                                           "--id is used only if --start"
-                                          " is 'blastp'")
+                                          " is 'blastp', --hmm-score is used "
+                                          "only if --start is 'hmmsearch'")
     search_opt.add_argument("--id", default=30.0, type=float, metavar="",
                            help="Retains only candidates above the specified"
                            " percentage of sequence identity [default: 30.0]")
@@ -932,6 +935,9 @@ if __name__ == "__main__":
     search_opt.add_argument("--tax", default="ABE", type=str, metavar="",
                            help="Superkingdom filter, A: Archaea, B: Bacteria"
                            " and E: Eukaryota [default: 'ABE']")
+    search_opt.add_argument("--hmm-score", type=float, default=0.0, metavar="",
+                            help="Treshold of the the full sequence bit score "
+                            "[default: 0.0]")
     
     clustering_opt = parser.add_argument_group("Clustering options")
     clustering_opt.add_argument("--cluster-id", default=80.0, type=float,
