@@ -12,6 +12,7 @@ config=""
 blast_path=""
 id=30.0
 cov=80.0
+score=0.0
 min_len=200
 max_len=1000
 tax="ABE"
@@ -19,7 +20,7 @@ tax="ABE"
 Help(){
     echo "Script used only with a slurm sbatch command"
     echo
-    echo "usage: filter.sh <path>/filter.py [-h] -q -C -d [-i] [-c] [-l] [-L] [-t]"
+    echo "usage: filter.sh <path>/filter.py [-h] -q -C -d [-i] [-c] [-s] [-l] [-L] [-t]"
     echo
     echo "options:"
     echo "  -h    show this help message"
@@ -28,6 +29,7 @@ Help(){
     echo "  -d    directory containing a blast output or a blast output"
     echo "  -i    percentage identity threshold [default: 30.0]"
     echo "  -c    percentage coverage threshold [default: 80.0]"
+    echo "  -s    treshold of the full sequence bit score [default: 0.0]"
     echo "  -l    minimum candidate sequence length [default:200]"
     echo "  -L    maximum candidate sequence length [default: 1000]"
     echo "  -t    selected superkingdoms to filter candidates sequences "
@@ -36,7 +38,7 @@ Help(){
 
 export -f Help
 
-while getopts ":o:q:C:d:i:c:l:L:t:" option
+while getopts ":o:q:C:d:i:c:s:l:L:t:" option
 do
     case $option in
         o)
@@ -56,6 +58,9 @@ do
             ;;
         c)
             cov=$OPTARG
+            ;;
+        s)
+            score=$OPTARG
             ;;
         l)
             min_len=$OPTARG
@@ -86,7 +91,7 @@ then
     mkdir $outdir
 fi
 
-python $script_path -o $outdir -q $query -c $config -d $blast_path --id $id --cov $cov --min $min_len --max $max_len --tax $tax
+python $script_path -o $outdir -q $query -c $config -d $blast_path --id $id --cov $cov --hmm-score $score --min $min_len --max $max_len --tax $tax
 
 if [ $? != 0 ];
 then
