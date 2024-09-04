@@ -1,0 +1,14 @@
+channels:
+- conda-forge
+- defaults
+- bioconda
+dependencies:
+- biopython
+- pyyaml
+- requests
+- psutil
+- diamond>=2.1.0
+- seqkit>=2.8.0
+- hmmer
+- mafft
+- fasttree
