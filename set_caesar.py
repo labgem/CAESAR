@@ -382,10 +382,10 @@ def set_filter(slurm, args):
     src_path = parent_path / "src" / "filter.py"
     
     # Set the output directory of filter.py and blastp.sh or hmm_search.sh
-    if args.start == "blastp":
+    if args.subcommand == "blastp":
         search_dir = Path(args.outdir).absolute() / "blastp"
     
-    elif args.start == "hmmsearch":
+    elif args.subcommand == "hmmsearch":
         search_dir = Path(args.outdir).absolute() / "hmmsearch"
         
     filtered_dir = Path(args.outdir).absolute() / "filtered"
@@ -396,7 +396,7 @@ def set_filter(slurm, args):
     min_len = args.min_len
     max_len = args.max_len
     tax = args.tax
-    score = args.hmm_score
+    score = args.score
     
     check_blastp_options(pid, cov, min_len, max_len, tax)
     
@@ -405,13 +405,13 @@ def set_filter(slurm, args):
     if slurm is True:
         sh_path = src_path.parent / "filter.sh"
         
-        if args.start in ["blastp", "hmmsearch"]:
+        if args.subcommand in ["blastp", "hmmsearch"]:
             text += r"job_filter=$(sbatch --dependency=afterok:${id_search} "
             text += r"--nodes 1 -c 1 -t 360 -J caesar_filtering -o %x_%j.log "
             text += f"--mem=4G {sh_path} {src_path} -o {filtered_dir} "
             text += f"-C {args.config} -q {args.query} -d {search_dir} "
         
-        elif args.start == "filter":
+        elif args.subcommand == "filter":
             blastp_path = Path(args.data).absolute()
             text += r"job_filter=$(sbatch "
             text += r"--nodes 1 -c 1 -t 360 -J caesar_filtering -o %x_%j.log "
@@ -423,10 +423,10 @@ def set_filter(slurm, args):
         
     else:
         text += f"python {src_path} -o {filtered_dir} -c {args.config} "
-        if args.start in ["blastp", "hmmsearch"]:
+        if args.subcommand in ["blastp", "hmmsearch"]:
             text += f"-q {args.query} -d {search_dir} --id {pid} --cov "
             
-        elif args.start == "filter":
+        elif args.subcommand == "filter":
             blastp_path = Path(args.data).absolute()    
             text += f"-q {args.query} -d {blastp_path} --id {pid} --cov "
             
@@ -464,13 +464,13 @@ def set_clustering(slurm, args):
     text = "# Diamond clustering\n"
     
     if slurm is True:
-        if args.start in ["blastp", "hmmsearch", "filter"]:
+        if args.subcommand in ["blastp", "hmmsearch", "filter"]:
             text += r"job_clustering=$(sbatch --dependency=afterok:${id_filter}"
             text += f" --nodes 1 -c {args.threads} -t 360 --mem={args.mem} "
             text += f"-J caesar_clustering -o %x_%j.log {src_path} -o "
             text += f"{clusters_dir} -f {filtered_dir}/filtered_sequences.fasta"
             
-        elif args.start == "clustering":
+        elif args.subcommand == "clustering":
             fasta = Path(args.fasta_cand).absolute()
             text += f"job_clustering=$(sbatch --nodes 1 -c {args.threads} -t 360"
             text += f" --mem={args.mem} -J caesar_clustering -o %x_%j.log "
@@ -480,12 +480,12 @@ def set_clustering(slurm, args):
         text += "id_clustering=$(echo $job_clustering | grep -oE '[0-9]+')\n\n"
         
     else:
-        if args.start in ["blastp", "hmmsearch", "filter"]:
+        if args.subcommand in ["blastp", "hmmsearch", "filter"]:
             text += f"bash {src_path} -o {clusters_dir} -f {filtered_dir}/filtered_"
             text += f"sequences.fasta -i {pid} -c {cov} -t {args.threads} -m "
             text += f"{args.mem}\n\n"
         
-        elif args.start == "clustering":
+        elif args.subcommand == "clustering":
             fasta = Path(args.fasta_cand).absolute()
                 
             text += f"bash {src_path} -o {clusters_dir} -f {fasta}"
@@ -552,7 +552,7 @@ def set_candidate_selection(slurm, args):
     if slurm is True:
         sh_path = src_path.parent / "candidate_selection.sh"
         
-        if args.start in ["blastp", "hmmsearch", "filter"]:
+        if args.subcommand in ["blastp", "hmmsearch", "filter"]:
             text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
             text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
             text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
@@ -564,14 +564,14 @@ def set_candidate_selection(slurm, args):
             fasta = Path(args.fasta_cand).absolute()
             sources = Path(args.sources).absolute()
             
-            if args.start == "clustering":
+            if args.subcommand == "clustering":
                 text += r"job_selection=$(sbatch --dependency=afterok:${id_clustering}"
                 text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
                 text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
                 text += f" -f {fasta} -c {clusters_dir}/clusters.tsv -s {sources}"
                 text += f" -g {gc}"
                 
-            elif args.start == "selection":
+            elif args.subcommand == "selection":
                 text += r"job_selection=$(sbatch "
                 text += "--nodes 1 -c 1 -t 360 --mem=4G -J caesar_selection -o "
                 text += f"%x_%j.log {sh_path} {src_path} -o {args.outdir} -C {args.config}"
@@ -601,7 +601,7 @@ def set_candidate_selection(slurm, args):
         
     else:
         # The paths have been written by the pipeline
-        if args.start in ["blastp", "hmmsearch", "filter"]:
+        if args.subcommand in ["blastp", "hmmsearch", "filter"]:
             text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
             text += f"{filtered_dir}/filtered_sequences.fasta --clusters "
             text += f"{clusters_dir}/clusters.tsv --sources {filtered_dir}/sources.txt "
@@ -612,13 +612,13 @@ def set_candidate_selection(slurm, args):
             fasta = Path(args.fasta_cand).absolute()
             sources = Path(args.sources).absolute()
             
-            if args.start == "clustering":
+            if args.subcommand == "clustering":
                 
                 text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
                 text += f"{fasta} --clusters {clusters_dir}/clusters.tsv --sources "
                 text += f"{sources} --gc {gc}"
             
-            elif args.start == "selection":
+            elif args.subcommand == "selection":
                 clusters = Path(args.clusters).absolute()
                 
                 text += f"python {src_path} -o {args.outdir} -c {args.config} -f "
@@ -690,14 +690,9 @@ def checks_optional_file(args):
         args (argparse.Namespace): the object containing all arguments
     """
     
-    start = args.start
+    start = args.subcommand
     
     # -d, --data
-    # if start blastp or hmmsearch, this option isn't allowed
-    if start in ["blastp", "hmmsearch"] and args.data is not None:
-        logging.error(f"-d, --data option isn't allowed with --start {start}")
-        sys.exit(1)
-    
     # if start filter, could be a dir or a file, but it's a required option
     if start == "filter":
         if args.data is None:
@@ -718,14 +713,9 @@ def checks_optional_file(args):
                           "isn't a file")
             sys.exit(1) 
     
-    # -f, --fasta-cand
-    # if start at the blastp, hmmsearch or filter step, this option isn't allowed
-    if start in ["blastp", "hmmsearch", "filter"] and args.fasta_cand is not None:
-        logging.error(f"-d, --data option isn't allowed with --start {start}")
-        sys.exit(1)
-        
+    # -f, --fasta-cand        
     # if start at the clustering or selection step, it's a required file
-    if args.start in ["clustering", "selection"]:
+    if args.subcommand in ["clustering", "selection"]:
         if args.fasta_cand is None:
             logging.error(f"-f, --fasta-cand is required if start {start}")
             sys.exit(1)
@@ -737,13 +727,8 @@ def checks_optional_file(args):
             sys.exit(1)
     
     # --sources
-    # if start at the blastp, hmmsearch or filter step, this option isn't allowed
-    if start in ["blastp", "hmmsearch" "filter"] and args.sources is not None:
-        logging.error(f"--sources option isn't allowed with --start {start}")
-        sys.exit(1)
-    
     # if start at the clustering or selection step, it's a required file
-    if args.start in ["clustering", "selection"]:
+    if args.subcommand in ["clustering", "selection"]:
         if args.sources is None:
             logging.error(f"--sources is required if start {start}")
             sys.exit(1)
@@ -755,12 +740,6 @@ def checks_optional_file(args):
             sys.exit(1)
     
     # --clusters
-    # if start at the blastp, hmmsearch, filter or clustering step, 
-    # this option isn't allowed
-    if start in ["blastp", "hmmsearch", "filter", "clustering"] and args.clusters is not None:
-        logging.error(f"--clusters option isn't allowed with --start {start}")
-        sys.exit(1)
-
     # if start at the selection step, it's a required file
     if start == "selection":
         if args.clusters is None:
@@ -802,7 +781,7 @@ def set_phylo(slurm, args):
             text += " --nodes 1 -c 1 -t 360 --mem=4G -J caesar_phylo -o "
             text += f"%x_%j.log {sh_path} -o {args.outdir}"
             
-            if args.start in ["blastp", "hmmsearch", "filter"]:
+            if args.subcommand in ["blastp", "hmmsearch", "filter"]:
                 text += f" -f {filtered_dir}/filtered_sequences.fasta"
                 
                 if args.reduce == 1:
@@ -815,16 +794,16 @@ def set_phylo(slurm, args):
                 text += f" -f {fasta}"
                 
                 if args.reduce == 1:
-                    if args.start == "clustering":
+                    if args.subcommand == "clustering":
                         text += f" -c {clusters_dir}/clusters.tsv {src_path})\n"
-                    elif args.start == "selection":
+                    elif args.subcommand == "selection":
                         clusters = Path(args.clusters).absolute()
                         text += f" -c {clusters} {src_path})\n"
                 else:
                     text += f" {src_path})\n"
             
         else:
-            if args.start in ["blastp", "hmmsearch", "filter"]:
+            if args.subcommand in ["blastp", "hmmsearch", "filter"]:
                 text += f"python {src_path} -o {args.outdir} -f {filtered_dir}/"
                 text += "filtered_sequences.fasta" 
                 if args.reduce == 1:
@@ -836,9 +815,9 @@ def set_phylo(slurm, args):
                 fasta = Path(args.fasta_cand).absolute()
                 text += f"python {src_path} -o {args.outdir} -f {fasta}"
                 if args.reduce == 1:
-                    if args.start == "clustering":
-                        text += f" --clusters {cluster_tsv}/clusters.tsv\n"
-                    elif args.start == "selection":
+                    if args.subcommand == "clustering":
+                        text += f" --clusters {clusters_dir}/clusters.tsv\n"
+                    elif args.subcommand == "selection":
                         clusters = Path(args.clusters).absolute()
                         text += f" --clusters {clusters}\n"
                 else:
@@ -860,14 +839,16 @@ def write_summary(args, db_path, outdir):
     text += "python " + " ".join(sys.argv) + "\n\n"
     
     text += "## Options ##\n"
-    text += f"--blast-id: {args.id}\t"
-    text += f"--blast-cov: {args.cov}\t"
-    text += f"--min-len: {args.min_len}\t"
-    text += f"--max-len: {args.max_len}\t"
-    text += f"--tax: {args.tax}\n"
+    if args.subcommand in ["blastp", "hmmsearch", "filter"]:
+        text += f"--blast-id: {args.id}\t"
+        text += f"--blast-cov: {args.cov}\t"
+        text += f"--min-len: {args.min_len}\t"
+        text += f"--max-len: {args.max_len}\t"
+        text += f"--tax: {args.tax}\n"
     
-    text += f"--cluster-id: {args.cluster_id}\t"
-    text += f"--cluster-cov: {args.cluster_cov}\n"
+    if args.subcommand != "selection":
+        text += f"--cluster-id: {args.cluster_id}\t"
+        text += f"--cluster-cov: {args.cluster_cov}\n"
     
     text += f"--gc: {args.gc}\t"
     if args.cov_per_cluster is None:
@@ -886,7 +867,367 @@ def write_summary(args, db_path, outdir):
     text += "\n"
     
     summary_file.write_text(text)
+    
+def cmd_parser():
+    
+    parser = argparse.ArgumentParser(description="Uses '%(prog)s <positional argument> -h' to obtain the specific help for the subcommand")
+    subcommand = parser.add_subparsers(dest="subcommand")
+    subcommand = blastp_cmd(subcommand)
+    subcommand = hmmsearch_cmd(subcommand)
+    subcommand = filter_cmd(subcommand)
+    subcommand = clustering_cmd(subcommand)
+    subcommand = selection_opt(subcommand)
+    
+    args = parser.parse_args()
+    
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+    
+    return args
+    
 
+def blastp_cmd(subcommand: argparse._SubParsersAction):
+    
+    blastp = subcommand.add_parser("blastp")
+    blastp.add_argument("-o", "--outdir", type=str, metavar="",
+                        default=Path.cwd().absolute(),
+                        help="output directory [default: ./]")
+    blastp.add_argument("-t", "--threads", type=int, metavar="", default=6,
+                        help="number of cpu threads [default: 6]")
+    blastp.add_argument("-m", "--mem", type=str, metavar="", default="4G",
+                        help="memory limit for the clustering step [default: 4G]")
+    
+    required_opt = blastp.add_argument_group("Mandatory inputs")
+    required_opt.add_argument("-c", "--config", type=str, metavar="",
+                              required=True, help="the yaml config file")
+    required_opt.add_argument("-q", "--query", type=str, metavar="",
+                              required=True, help="set of reference sequences")
+    
+    blastp_opt = blastp.add_argument_group("Blastp options")
+    blastp_opt.add_argument("--id", type=float, metavar="", default=30.0,
+                            help="retains only sequences above the specified "
+                            "percentage of sequence identity [default: 30.0]")
+    blastp_opt.add_argument("--cov", type=float, metavar="", default=80.0,
+                            help="retains only sequences above the specified "
+                            "percentage of query cover [default: 80.0]")
+    blastp_opt.add_argument("--min-len", type=int, metavar="", default=200,
+                            help="retains only sequences above the specified"
+                            " sequence length [default: 200]")
+    blastp_opt.add_argument("--max-len", type=int, metavar="", default=1000,
+                            help="retains only sequences below the specified"
+                            " sequence length [default: 200]")
+    blastp_opt.add_argument("--tax", default="ABE", type=str, metavar="",
+                            help="Superkingdom filter, A: Archaea, B: Bacteria"
+                            " and E: Eukaryota [default: 'ABE']")
+    blastp_opt.add_argument('--score', type=float, default=0.0, metavar="",
+                            help=argparse.SUPPRESS)
+
+    clust_opt = blastp.add_argument_group("Clustering options")
+    clust_opt.add_argument("--cluster-id", metavar="", type=float, default=80.0,
+                           help="identity cutoff for the clustering [default: 80.0]")
+    clust_opt.add_argument("--cluster-cov", metavar="", type=float, default=80.0,
+                           help="minimum coverage of cluster member sequence")
+    
+    select_opt = blastp.add_argument_group("Candidates selection options")
+    ncand_opt = select_opt.add_mutually_exclusive_group()
+    ncand_opt.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+                           help="maximum number of candidate per cluster "
+                           "[default: 1]")
+    ncand_opt.add_argument("--cov-per-cluster", type=float, metavar="",
+                           help="uses a percentage of each cluster as maximum"
+                           " number of candidates rather than a given number")
+    select_opt.add_argument("--gc", metavar="", type=float, default=50.0,
+                            help="target GC percentage to decide between "
+                            "candidates [default: 50.0]")
+    
+    phylo_opt = blastp.add_argument_group("Phylogeny options")
+    phylo_opt.add_argument("-p", "--phylo", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: generate a msa and a phylogenetic"
+                           " tree, 0: does not perform the step [default: 1]")
+    phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: builds the tree using only "
+                           "the reprensentative sequences of each cluster, "
+                           "0: uses all the filtered sequences [default: 1]")
+    
+    exlusion_opt = blastp.add_argument_group("Exclude some protein ids",
+                                             "Can be used to re-run pipeline"
+                                             " and try to get other candidates")
+    exlusion_opt.add_argument("-u", "--update", type=str, metavar="",
+                              help="File containing the list"
+                              " of proteins ids not to be selected as candidates")
+
+    return subcommand
+
+def hmmsearch_cmd(subcommand: argparse._SubParsersAction):
+    
+    hmmsearch = subcommand.add_parser("hmmsearch")
+    
+    hmmsearch.add_argument("-o", "--outdir", type=str, metavar="",
+                           default=Path.cwd().absolute(),
+                           help="output directory [default: ./]")
+    hmmsearch.add_argument("-t", "--threads", type=int, metavar="", default=6,
+                           help="number of cpu threads [default: 6]")
+    hmmsearch.add_argument("-m", "--mem", type=str, metavar="", default="4G",
+                           help=argparse.SUPPRESS)
+    
+    required_opt = hmmsearch.add_argument_group("Mandatory inputs")
+    required_opt.add_argument("-c", "--config", type=str, metavar="",
+                              required=True, help="the yaml config file")
+    required_opt.add_argument("-q", "--query", type=str, metavar="",
+                              required=True, help="hmm file")
+    
+    hmmsearch_opt = hmmsearch.add_argument_group("Hmmsearch options")
+    hmmsearch_opt.add_argument("--score", type=float, metavar="", default=0.0,
+                            help="retains only sequences above the specified "
+                            "full sequence score [default: 0.0]")
+    hmmsearch_opt.add_argument("--cov", type=float, metavar="", default=80.0,
+                            help="retains only sequences above the specified "
+                            "percentage of query cover [default: 80.0]")
+    hmmsearch_opt.add_argument("--min-len", type=int, metavar="", default=200,
+                            help="retains only sequences above the specified"
+                            " sequence length [default: 200]")
+    hmmsearch_opt.add_argument("--max-len", type=int, metavar="", default=1000,
+                            help="retains only sequences below the specified"
+                            " sequence length [default: 200]")
+    hmmsearch_opt.add_argument("--tax", default="ABE", type=str, metavar="",
+                            help="Superkingdom filter, A: Archaea, B: Bacteria"
+                            " and E: Eukaryota [default: 'ABE']")
+    hmmsearch_opt.add_argument("--id", type=float, default=30.0, metavar="",
+                               help=argparse.SUPPRESS)
+    
+    clust_opt = hmmsearch.add_argument_group("Clustering options")
+    clust_opt.add_argument("--cluster-id", metavar="", type=float, default=80.0,
+                           help="identity cutoff for the clustering [default: 80.0]")
+    clust_opt.add_argument("--cluster-cov", metavar="", type=float, default=80.0,
+                           help="minimum coverage of cluster member sequence")
+    
+    select_opt = hmmsearch.add_argument_group("Candidates selection options")
+    ncand_opt = select_opt.add_mutually_exclusive_group()
+    ncand_opt.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+                           help="maximum number of candidate per cluster "
+                           "[default: 1]")
+    ncand_opt.add_argument("--cov-per-cluster", type=float, metavar="",
+                           help="uses a percentage of each cluster as maximum"
+                           " number of candidates rather than a given number")
+    select_opt.add_argument("--gc", metavar="", type=float, default=50.0,
+                            help="target GC percentage to decide between "
+                            "candidates [default: 50.0]")
+    
+    phylo_opt = hmmsearch.add_argument_group("Phylogeny options")
+    phylo_opt.add_argument("-p", "--phylo", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: generate a msa and a phylogenetic"
+                           " tree, 0: does not perform the step [default: 1]")
+    phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: builds the tree using only "
+                           "the reprensentative sequences of each cluster, "
+                           "0: uses all the filtered sequences [default: 1]")
+    
+    exlusion_opt = hmmsearch.add_argument_group("Exclude some protein ids",
+                                                "Can be used to re-run pipeline"
+                                                " and try to get other candidates")
+    exlusion_opt.add_argument("-u", "--update", type=str, metavar="",
+                              help="File containing the list"
+                              " of proteins ids not to be selected as candidates")
+    
+    return subcommand
+
+def filter_cmd(subcommand: argparse._SubParsersAction):
+    
+    filter_sub = subcommand.add_parser("filter")
+    
+    filter_sub.add_argument("-o", "--outdir", type=str, metavar="",
+                           default=Path.cwd().absolute(),
+                           help="output directory [default: ./]")
+    filter_sub.add_argument("-t", "--threads", type=int, metavar="", default=6,
+                           help="number of cpu threads [default: 6]")
+    filter_sub.add_argument("-m", "--mem", type=str, metavar="", default="4G",
+                            help=argparse.SUPPRESS)
+    
+    required_opt = filter_sub.add_argument_group("Mandatory inputs")
+    required_opt.add_argument("-c", "--config", type=str, metavar="",
+                              required=True, help="the yaml config file")
+    required_opt.add_argument("-q", "--query", type=str, metavar="",
+                              required=True, help="set of reference sequences or hmm file")
+    required_opt.add_argument("-d", "--data", type=str, metavar="", required=True,
+                              help="directory containing tsv file from diamond"
+                              " blastp or .domtblout file from hmmsearch")
+    
+    filter_opt = filter_sub.add_argument_group("Filter options")
+    filter_excl = filter_opt.add_mutually_exclusive_group()
+    filter_excl.add_argument("--id", type=float, metavar="", default=30.0,
+                            help="retains only sequences above the specified "
+                            "percentage of sequence identity [default: 30.0]")
+    filter_excl.add_argument("--score", type=float, metavar="", default=0.0,
+                            help="retains only sequences above the specified "
+                            "full sequence score [default: 0.0]")
+    filter_opt.add_argument("--cov", type=float, metavar="", default=80.0,
+                            help="retains only sequences above the specified "
+                            "percentage of query cover [default: 80.0]")
+    filter_opt.add_argument("--min-len", type=int, metavar="", default=200,
+                            help="retains only sequences above the specified"
+                            " sequence length [default: 200]")
+    filter_opt.add_argument("--max-len", type=int, metavar="", default=1000,
+                            help="retains only sequences below the specified"
+                            " sequence length [default: 200]")
+    filter_opt.add_argument("--tax", default="ABE", type=str, metavar="",
+                            help="Superkingdom filter, A: Archaea, B: Bacteria"
+                            " and E: Eukaryota [default: 'ABE']")
+    
+    clust_opt = filter_sub.add_argument_group("Clustering options")
+    clust_opt.add_argument("--cluster-id", metavar="", type=float, default=80.0,
+                           help="identity cutoff for the clustering [default: 80.0]")
+    clust_opt.add_argument("--cluster-cov", metavar="", type=float, default=80.0,
+                           help="minimum coverage of cluster member sequence")
+    
+    select_opt = filter_sub.add_argument_group("Candidates selection options")
+    ncand_opt = select_opt.add_mutually_exclusive_group()
+    ncand_opt.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+                           help="maximum number of candidate per cluster "
+                           "[default: 1]")
+    ncand_opt.add_argument("--cov-per-cluster", type=float, metavar="",
+                           help="uses a percentage of each cluster as maximum"
+                           " number of candidates rather than a given number")
+    select_opt.add_argument("--gc", metavar="", type=float, default=50.0,
+                            help="target GC percentage to decide between "
+                            "candidates [default: 50.0]")
+    
+    phylo_opt = filter_sub.add_argument_group("Phylogeny options")
+    phylo_opt.add_argument("-p", "--phylo", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: generate a msa and a phylogenetic"
+                           " tree, 0: does not perform the step [default: 1]")
+    phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: builds the tree using only "
+                           "the reprensentative sequences of each cluster, "
+                           "0: uses all the filtered sequences [default: 1]")
+    
+    exlusion_opt = filter_sub.add_argument_group("Exclude some protein ids",
+                                                 "Can be used to re-run pipeline"
+                                                 " and try to get other candidates")
+    exlusion_opt.add_argument("-u", "--update", type=str, metavar="",
+                              help="File containing the list"
+                              " of proteins ids not to be selected as candidates")
+    
+    return subcommand
+
+def clustering_cmd(subcommand: argparse._SubParsersAction):
+    
+    clustering = subcommand.add_parser("clustering")
+    
+    clustering.add_argument("-o", "--outdir", type=str, metavar="",
+                           default=Path.cwd().absolute(),
+                           help="output directory [default: ./]")
+    clustering.add_argument("-t", "--threads", type=int, metavar="", default=6,
+                           help="number of cpu threads [default: 6]")
+    clustering.add_argument("-m", "--mem", type=str, metavar="", default="4G",
+                           help=argparse.SUPPRESS)
+    
+    required_opt = clustering.add_argument_group("Mandatory inputs")
+    required_opt.add_argument("-c", "--config", type=str, metavar="",
+                              required=True, help="the yaml config file")
+    required_opt.add_argument("-q", "--query", type=str, metavar="",
+                              required=True, help="set of reference sequences or hmm file")
+    required_opt.add_argument("-d", "--data", type=str, metavar="",
+                              help="file formatted as filetered_data.tsv "
+                              "returned by the filter step")
+    required_opt.add_argument("-f", "--fasta-cand", type=str, metavar="", required=True,
+                              help="multi fasta file")
+    required_opt.add_argument("--sources", type=str, metavar="", required=True,
+                              help="file indicating the sources database of each sequences")
+    
+    clust_opt = clustering.add_argument_group("Clustering options")
+    clust_opt.add_argument("--cluster-id", metavar="", type=float, default=80.0,
+                           help="identity cutoff for the clustering [default: 80.0]")
+    clust_opt.add_argument("--cluster-cov", metavar="", type=float, default=80.0,
+                           help="minimum coverage of cluster member sequence")
+    
+    select_opt = clustering.add_argument_group("Candidates selection options")
+    ncand_opt = select_opt.add_mutually_exclusive_group()
+    ncand_opt.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+                           help="maximum number of candidate per cluster "
+                           "[default: 1]")
+    ncand_opt.add_argument("--cov-per-cluster", type=float, metavar="",
+                           help="uses a percentage of each cluster as maximum"
+                           " number of candidates rather than a given number")
+    select_opt.add_argument("--gc", metavar="", type=float, default=50.0,
+                            help="target GC percentage to decide between "
+                            "candidates [default: 50.0]")
+    
+    phylo_opt = clustering.add_argument_group("Phylogeny options")
+    phylo_opt.add_argument("-p", "--phylo", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: generate a msa and a phylogenetic"
+                           " tree, 0: does not perform the step [default: 1]")
+    phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: builds the tree using only "
+                           "the reprensentative sequences of each cluster, "
+                           "0: uses all the filtered sequences [default: 1]")
+    
+    exlusion_opt = clustering.add_argument_group("Exclude some protein ids",
+                                                 "Can be used to re-run pipeline"
+                                                 " and try to get other candidates")
+    exlusion_opt.add_argument("-u", "--update", type=str, metavar="",
+                              help="File containing the list"
+                              " of proteins ids not to be selected as candidates")
+    
+    return subcommand
+
+def selection_opt(subcommand= argparse._SubParsersAction):
+    
+    selection = subcommand.add_parser("selection")
+    
+    selection.add_argument("-o", "--outdir", type=str, metavar="",
+                           default=Path.cwd().absolute(),
+                           help="output directory [default: ./]")
+    selection.add_argument("-t", "--threads", type=int, metavar="", default=6,
+                           help="number of cpu threads [default: 6]")
+    selection.add_argument("-m", "--mem", type=str, metavar="", default="4G",
+                           help=argparse.SUPPRESS)
+    
+    required_opt = selection.add_argument_group("Mandatory inputs")
+    required_opt.add_argument("-c", "--config", type=str, metavar="",
+                              required=True, help="the yaml config file")
+    required_opt.add_argument("-q", "--query", type=str, metavar="",
+                              required=True, help="set of reference sequences or hmm file")
+    required_opt.add_argument("-d", "--data", type=str, metavar="",
+                              help="file formatted as filetered_data.tsv "
+                              "returned by the filter step")
+    required_opt.add_argument("-f", "--fasta-cand", type=str, metavar="", required=True,
+                              help="multi fasta file")
+    required_opt.add_argument("--sources", type=str, metavar="", required=True,
+                              help="file indicating the sources database of each sequences")
+    required_opt.add_argument("--clusters", type=str, metavar="", required=True,
+                              help="clusters tsv file")
+    
+    select_opt = selection.add_argument_group("Candidates selection options")
+    ncand_opt = select_opt.add_mutually_exclusive_group()
+    ncand_opt.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
+                           help="maximum number of candidate per cluster "
+                           "[default: 1]")
+    ncand_opt.add_argument("--cov-per-cluster", type=float, metavar="",
+                           help="uses a percentage of each cluster as maximum"
+                           " number of candidates rather than a given number")
+    select_opt.add_argument("--gc", metavar="", type=float, default=50.0,
+                            help="target GC percentage to decide between "
+                            "candidates [default: 50.0]")
+    
+    phylo_opt = selection.add_argument_group("Phylogeny options")
+    phylo_opt.add_argument("-p", "--phylo", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: generate a msa and a phylogenetic"
+                           " tree, 0: does not perform the step [default: 1]")
+    phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
+                           choices=[0,1], help="1: builds the tree using only "
+                           "the reprensentative sequences of each cluster, "
+                           "0: uses all the filtered sequences [default: 1]")
+    
+    exlusion_opt = selection.add_argument_group("Exclude some protein ids",
+                                                "Can be used to re-run pipeline"
+                                                " and try to get other candidates")
+    exlusion_opt.add_argument("-u", "--update", type=str, metavar="",
+                              help="File containing the list"
+                              " of proteins ids not to be selected as candidates")
+    
+    return subcommand
+    
 ##########
 ## MAIN ##
 ##########
@@ -895,115 +1236,13 @@ if __name__ == "__main__":
     
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s - %(asctime)s - %(message)s ")
-    
-    parser = argparse.ArgumentParser(usage="%(prog)s -c -q [ options ]")
-    parser.add_argument("-o", '--outdir', type=str, default=Path.cwd(), metavar="",
-                        help="Output directory [default: './']")
-    parser.add_argument("-s", "--start", type=str, metavar="", default="blastp",
-                        choices=["blastp", "hmmsearch", "filter", "clustering",
-                                 "selection"],
-                        help="Selects the inital step: 'blastp', 'hmmsearch', "
-                        "'filter', 'clustering' or 'selection' [default: 'blastp']")
-    parser.add_argument("-t", "--threads", type=int, metavar="", default=4,
-                        help="Number of CPU threads for diamond processes"
-                        " [default: 4]")
-    parser.add_argument("-m", "--mem", type=str, default="4G", metavar="",
-                        help="Memory limit for diamond process [default: '4G']")
-    
-    required_input = parser.add_argument_group("Mandatory inputs")
-    required_input.add_argument("-c", "--config", type=str, metavar="",
-                                required=True, help="Configuration file")
-    required_input.add_argument("-q", "--query", type=str, metavar="",
-                                required=True, help="Set of reference sequences")
-    
-    search_opt = parser.add_argument_group("Search options",
-                                          "--id is used only if --start"
-                                          " is 'blastp', --hmm-score is used "
-                                          "only if --start is 'hmmsearch'")
-    search_opt.add_argument("--id", default=30.0, type=float, metavar="",
-                           help="Retains only candidates above the specified"
-                           " percentage of sequence identity [default: 30.0]")
-    search_opt.add_argument("--cov", default=80.0, type=float, metavar="",
-                           help="Retains only candidates above the specified"
-                           " percentage of query cover [default: 80.0]")
-    search_opt.add_argument("--min-len", default=200, type=int, metavar="",
-                           help="Retains only candidates above the specified"
-                           " sequence length [default: 200]")
-    search_opt.add_argument("--max-len", default=1000, type=int, metavar="",
-                           help="Retains only candidates below the specified"
-                           " sequence length [default: 1000]")
-    search_opt.add_argument("--tax", default="ABE", type=str, metavar="",
-                           help="Superkingdom filter, A: Archaea, B: Bacteria"
-                           " and E: Eukaryota [default: 'ABE']")
-    search_opt.add_argument("--hmm-score", type=float, default=0.0, metavar="",
-                            help="Treshold of the the full sequence bit score "
-                            "[default: 0.0]")
-    
-    clustering_opt = parser.add_argument_group("Clustering options")
-    clustering_opt.add_argument("--cluster-id", default=80.0, type=float,
-                                metavar="",
-                                help="Identity cutoff for the clustering "
-                                "[default: 80.0]")
-    clustering_opt.add_argument("--cluster-cov", default=80.0, type=float,
-                                metavar="",
-                                help="Minimum coverage of cluster member sequence")
-    
-    selection_opt = parser.add_argument_group("Candidates selection options")
-    selection_opt.add_argument("--gc", default=50.0, type=float, metavar="",
-                               help="Target GC percentage to decide between"
-                               " candidates [default: 50.0]")
-    ncand_group = selection_opt.add_mutually_exclusive_group()
-    ncand_group.add_argument("-n", "--nb-cand", type=int, metavar="", default=1,
-                        help="maximum number of candidate per cluster [default: 1]")
-    ncand_group.add_argument("--cov-per-cluster", type=float, metavar="",
-                             help="Uses a percentage of each cluster as "
-                             "maximum number of candidates rather than a given"
-                             " number")
-    
-    phylo_opt = parser.add_argument_group("Phylogeny options")
-    phylo_opt.add_argument("-p", "--phylo",type=int, choices=[0,1], default=1,
-                           metavar="", help="1: generate a msa and a phylogenetic"
-                           " tree, 0: does not perform the step [default: 1]")
-    phylo_opt.add_argument("-r", "--reduce",type=int, choices=[0,1], default=1,
-                           metavar="", help="1: Builds the tree using only the "
-                           "representative sequences of each cluster, 0: uses "
-                           "all the sequences [default: 1]")
-    
-    data_opt = parser.add_argument_group("Required if --start equals to"
-                                         " 'filter', 'clustering' or 'selection'",
-                                         "Could be a directory containing "
-                                         "blastp tsv outputs if 'filter'")
-    data_opt.add_argument("-d", "--data", type=str, metavar="",
-                          help="Directory of blastp outputs, a blastp output "
-                          "or a filtered blastp ourput")
-    
-    fasta_source = parser.add_argument_group("Required if --start equals to"
-                                             " 'clustering' or 'selection'")
-    fasta_source.add_argument("-f", "--fasta-cand", type=str, metavar="",
-                              help="Multi fasta of protein sequences")
-    fasta_source.add_argument("--sources", type=str, metavar="",
-                              help="Sources file indicating the sources"
-                              " database of each sequences")
-    
-    cluster_tsv = parser.add_argument_group("Required if --start equals to"
-                                            " 'selection'")
-    cluster_tsv.add_argument("--clusters", type=str, metavar="", 
-                             help="clusters tsv file")
-    
-    exlusion_opt = parser.add_argument_group("Exclude some protein ids",
-                                            "Can be used to re-run pipeline"
-                                            " and try to get other candidates")
-    exlusion_opt.add_argument("-u", "--update", type=str, metavar="",
-                              help="File containing the list"
-                              " of proteins ids not to be selected as candidates")
-    
-    args = parser.parse_args()
+    args = cmd_parser()
     
     config_file, query_file = check_required_inputs(config=args.config,
                                                     query=args.query)
     
     db_path,yml = read_yaml_config(Path(args.config))
-    check_db_path(db_path, args.config, args.start)
+    check_db_path(db_path, args.config, args.subcommand)
     module, slurm, parallel = check_config_options(yml, db_path)
     outdir = check_general_options(slurm, threads=args.threads, mem=args.mem,
                                    outdir=args.outdir)
@@ -1017,19 +1256,19 @@ if __name__ == "__main__":
         
         caesar_text += "\n"
         
-    if args.start == "blastp":
+    if args.subcommand == "blastp":
         caesar_text += set_blastp(slurm, parallel, args, db_path)
         
-    elif args.start == "hmmsearch":
+    elif args.subcommand == "hmmsearch":
         caesar_text += set_hmmsearch(slurm, parallel, args, db_path)
     
-    if args.start in ["blastp", 'hmmsearch', "filter"]:
+    if args.subcommand in ["blastp", 'hmmsearch', "filter"]:
         caesar_text += set_filter(slurm, args)
         
-    if args.start in  ["blastp", "hmmsearch", "filter", "clustering"]:
+    if args.subcommand in  ["blastp", "hmmsearch", "filter", "clustering"]:
         caesar_text += set_clustering(slurm, args)
     
-    if args.start in  ["blastp", "hmmsearch", "filter", "clustering", "selection"]:
+    if args.subcommand in  ["blastp", "hmmsearch", "filter", "clustering", "selection"]:
         caesar_text += set_candidate_selection(slurm, args)
         caesar_text += set_phylo(slurm, args)
     
