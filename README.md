@@ -67,7 +67,7 @@ The `slurm`, `parallel` and `module` key are optionnal.
 ### Start with blastp
 
 ```
-python ./CAESAR/set_caesar.py -q references_sequences.fasta -c config.yml
+python ./CAESAR/set_caesar.py blastp -q references_sequences.fasta -c config.yml
 ```
 
 This command create a bash script named `run_caesar.sh` use to launch the pipeline.
@@ -79,7 +79,7 @@ bash ./run_caesar.sh
 ### Start with hmmsearch
 
 ```
-python ./CAESAR/set_caesar.py -q reference_pattern.hmm -c config.yml --start hmmsearch
+python ./CAESAR/set_caesar.py hmmsearch -q reference_profile.hmm -c config.yml
 ```
 
 Then
