@@ -983,7 +983,7 @@ def hmmsearch_cmd(subcommand: argparse._SubParsersAction):
                             "full sequence score [default: 0.0]")
     hmmsearch_opt.add_argument("--cov", type=float, metavar="", default=80.0,
                             help="retains only sequences above the specified "
-                            "percentage of query cover [default: 80.0]")
+                            "percentage of hmm profile cover [default: 80.0]")
     hmmsearch_opt.add_argument("--min-len", type=int, metavar="", default=200,
                             help="retains only sequences above the specified"
                             " sequence length [default: 200]")
