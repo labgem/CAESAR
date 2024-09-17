@@ -1,4 +1,13 @@
-# CAESAR
+<!-- ![CAESAR logo](docs/caesar.png) -->
+<!-- center and resize the image with html syntax -->
+<p align="center">
+  <img src="docs/caesar.png" alt="CAESAR logo"
+       width="208"
+       height="230"
+    />
+</p>
+
+# CAndidate Enzyme SeARch
 
 CAESAR is a pipeline to (1) search candidates sequences, based on references sequences or hmm pattern, (2) clustered them, (3) selects candidates in each clusters and (4) build a phylogenetic tree.
 
