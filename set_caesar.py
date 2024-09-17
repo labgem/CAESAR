@@ -947,7 +947,7 @@ def blastp_cmd(subcommand: argparse._SubParsersAction):
                            " tree, 0: does not perform the step [default: 1]")
     phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
                            choices=[0,1], help="1: builds the tree using only "
-                           "the reprensentative sequences of each cluster, "
+                           "the representative sequences of each cluster, "
                            "0: uses all the filtered sequences [default: 1]")
     
     exlusion_opt = blastp.add_argument_group("Exclude some protein ids",
@@ -1020,7 +1020,7 @@ def hmmsearch_cmd(subcommand: argparse._SubParsersAction):
                            " tree, 0: does not perform the step [default: 1]")
     phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
                            choices=[0,1], help="1: builds the tree using only "
-                           "the reprensentative sequences of each cluster, "
+                           "the representative sequences of each cluster, "
                            "0: uses all the filtered sequences [default: 1]")
     
     exlusion_opt = hmmsearch.add_argument_group("Exclude some protein ids",
@@ -1099,7 +1099,7 @@ def filter_cmd(subcommand: argparse._SubParsersAction):
                            " tree, 0: does not perform the step [default: 1]")
     phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
                            choices=[0,1], help="1: builds the tree using only "
-                           "the reprensentative sequences of each cluster, "
+                           "the representative sequences of each cluster, "
                            "0: uses all the filtered sequences [default: 1]")
     
     exlusion_opt = filter_sub.add_argument_group("Exclude some protein ids",
@@ -1162,7 +1162,7 @@ def clustering_cmd(subcommand: argparse._SubParsersAction):
                            " tree, 0: does not perform the step [default: 1]")
     phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
                            choices=[0,1], help="1: builds the tree using only "
-                           "the reprensentative sequences of each cluster, "
+                           "the representative sequences of each cluster, "
                            "0: uses all the filtered sequences [default: 1]")
     
     exlusion_opt = clustering.add_argument_group("Exclude some protein ids",
@@ -1221,7 +1221,7 @@ def selection_opt(subcommand= argparse._SubParsersAction):
                            " tree, 0: does not perform the step [default: 1]")
     phylo_opt.add_argument("-r", "--reduce", metavar="", type=int, default=1,
                            choices=[0,1], help="1: builds the tree using only "
-                           "the reprensentative sequences of each cluster, "
+                           "the representative sequences of each cluster, "
                            "0: uses all the filtered sequences [default: 1]")
     
     exlusion_opt = selection.add_argument_group("Exclude some protein ids",
