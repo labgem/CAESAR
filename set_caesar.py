@@ -1051,7 +1051,7 @@ def filter_cmd(subcommand: argparse._SubParsersAction):
                               required=True, help="set of reference sequences or hmm file")
     required_opt.add_argument("-d", "--data", type=str, metavar="", required=True,
                               help="directory containing tsv file from diamond"
-                              " blastp or .domtblout file from hmmsearch")
+                              " blastp or .domtbl file from hmmsearch")
     
     filter_opt = filter_sub.add_argument_group("Filter options")
     filter_excl = filter_opt.add_mutually_exclusive_group()
@@ -1128,13 +1128,15 @@ def clustering_cmd(subcommand: argparse._SubParsersAction):
                               required=True, help="the yaml config file")
     required_opt.add_argument("-q", "--query", type=str, metavar="",
                               required=True, help="set of reference sequences or hmm file")
-    required_opt.add_argument("-d", "--data", type=str, metavar="",
-                              help="file formatted as filetered_data.tsv "
-                              "returned by the filter step")
     required_opt.add_argument("-f", "--fasta-cand", type=str, metavar="", required=True,
                               help="multi fasta file")
     required_opt.add_argument("--sources", type=str, metavar="", required=True,
                               help="file indicating the sources database of each sequences")
+    
+    input_opt = clustering.add_argument_group("Optional data")
+    input_opt.add_argument("-d", "--data", type=str, metavar="",
+                           help="file formatted as filetered_data.tsv "
+                           "returned by the filter step")
     
     clust_opt = clustering.add_argument_group("Clustering options")
     clust_opt.add_argument("--cluster-id", metavar="", type=float, default=80.0,
@@ -1189,15 +1191,17 @@ def selection_opt(subcommand= argparse._SubParsersAction):
                               required=True, help="the yaml config file")
     required_opt.add_argument("-q", "--query", type=str, metavar="",
                               required=True, help="set of reference sequences or hmm file")
-    required_opt.add_argument("-d", "--data", type=str, metavar="",
-                              help="file formatted as filetered_data.tsv "
-                              "returned by the filter step")
     required_opt.add_argument("-f", "--fasta-cand", type=str, metavar="", required=True,
                               help="multi fasta file")
     required_opt.add_argument("--sources", type=str, metavar="", required=True,
                               help="file indicating the sources database of each sequences")
     required_opt.add_argument("--clusters", type=str, metavar="", required=True,
                               help="clusters tsv file")
+    
+    input_opt = selection.add_argument_group("Optional data")
+    input_opt.add_argument("-d", "--data", type=str, metavar="",
+                           help="file formatted as filetered_data.tsv "
+                           "returned by the filter step")
     
     select_opt = selection.add_argument_group("Candidates selection options")
     ncand_opt = select_opt.add_mutually_exclusive_group()
