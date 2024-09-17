@@ -984,7 +984,7 @@ def select_candidate(presel, all_cand, yml, sources_db, max_cand):
     return selected_cand_per_clust
 
 def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
-                  ref_candidate_count, outdir):
+                  ref_candidate_count, outdir, hmm_data):
     """Writes the results
 
     Args:
@@ -997,6 +997,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         ref_candidate_count (dict): for each reference, indicate the number of 
         candidate who matched with it
         outdir (Path): output directory
+        hmm_data (bool): data from hmm or not
     """
     
     text = "## Candidate Selection ##\nCategory\tNumber of candidates\n"
@@ -1028,7 +1029,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
             all_candidate_ids.append(name)
             
             # blast data
-            if all_cand[name].query is not None and len(all_cand[name].query) == 7:
+            if all_cand[name].query is not None and hmm_data is False:
                 query_name = all_cand[name].query[0]  # reference sequence name
                 pident = all_cand[name].query[1]  # %id
                 qcovhsp = all_cand[name].query[2]  # %cov
@@ -1040,9 +1041,9 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
                 ref_candidate_count[query_name]["selected"] += 1
             
             # hmm data
-            elif all_cand[name].query is not None and len(all_cand[name].query) == 4:
+            elif all_cand[name].query is not None and hmm_data is True:
                 query_name = all_cand[name].query[0]  # reference sequence name
-                pident = None  # %id
+                pident = all_cand[name].query[2]  # score but in the same variable name than %id for blastp
                 qcovhsp = all_cand[name].query[1]  # %cov
                 positives = None  # %positives
                 mismatch = None  # %mismatch
@@ -1107,8 +1108,13 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         
         table_tsv = Path.joinpath(category_dir, "all_candidates.tsv")
         
-        header = "Candidate\tCluster\tCluster_size\tSources\tOrganism\tTax_id\tEMBL-GenBank-DDBJ_CDS\t"
-        header += "GC\tQuery\tid\tcov\tpositives\tmismatch\tgaps\te-value\t"
+        header = "Candidate\tCluster\tCluster_size\tSources\tOrganism\tTax_id"
+        header += "\tEMBL-GenBank-DDBJ_CDS\tGC\tQuery\t"
+        if hmm_data is True:
+            header += "score"
+        else:
+            header += "id"
+        header += "\tcov\tpositives\tmismatch\tgaps\te-value\t"
         header += "Selection_type\tStrain_library_organism\tStrain_library_tax_id\t"
         header += "Collection\tCollection_id\n"
         
@@ -1231,6 +1237,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    hmm_data = False
+    
     outdir = Path(args.outdir)
     
     start = datetime.datetime.now()
@@ -1286,6 +1294,7 @@ if __name__ == "__main__":
         if column_count == 11:
             all_seq, ref_candidate_count = get_blast_informartion(all_seq, data_file)
         else:
+            hmm_data = True
             all_seq, ref_candidate_count = get_hmm_information(all_seq, data_file)
     
     else:
@@ -1450,7 +1459,7 @@ if __name__ == "__main__":
                                                max_cand)
     
     write_results(selected_cand_per_clust, clusters, clusters_sources, all_seq,
-                  ref_candidate_count, outdir)
+                  ref_candidate_count, outdir, hmm_data)
     
     end = datetime.datetime.now()
     logging.info(f"elapsed time: {end - start_selection}")    
