@@ -96,3 +96,5 @@ Then
 ```
 bash ./run_caesar.sh
 ```
+
+NB: for more details, see the [Usages](https://github.com/labgem/CAESAR/wiki/Usages) page on the Wiki
