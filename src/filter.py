@@ -520,6 +520,10 @@ if __name__ == "__main__":
                                                       treshold=args.hmm_score,
                                                       db_path=db_path)
         # Key correspond to the sources database
+        if len(seq) == 0:
+            logging.error("no sequence retained after the filter")
+            sys.exit(1)
+            
         key = list(seq.keys())[0]
         if key in map_seq:
             map_seq[key].update(seq[key])
