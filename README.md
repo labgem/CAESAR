@@ -13,7 +13,7 @@ CAESAR is a pipeline to (1) search candidates sequences, based on references seq
 
 ## Installation
 
-Simply donwload ZIP or clone the repository to obtain the code.
+Download the latest [release](https://github.com/labgem/CAESAR/releases) to obtain the code
 
 Then you can install all the Python dependencies and all the external bioinformatics tools required with the following command*:
 
