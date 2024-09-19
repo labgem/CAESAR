@@ -839,24 +839,21 @@ def write_summary(args, db_path, outdir):
     text += "python " + " ".join(sys.argv) + "\n\n"
     
     text += "## Options ##\n"
-    if args.subcommand in ["blastp", "hmmsearch", "filter"]:
-        text += f"--blast-id: {args.id}\t"
-        text += f"--blast-cov: {args.cov}\t"
-        text += f"--min-len: {args.min_len}\t"
-        text += f"--max-len: {args.max_len}\t"
-        text += f"--tax: {args.tax}\n"
     
-    if args.subcommand != "selection":
-        text += f"--cluster-id: {args.cluster_id}\t"
-        text += f"--cluster-cov: {args.cluster_cov}\n"
+    args_dict = args.__dict__
     
-    text += f"--gc: {args.gc}\t"
-    if args.cov_per_cluster is None:
-        text += f"-n: {args.nb_cand}\t"
-    else:
-        text += f"--cov-per-cluster: {args.cov_per_cluster}\t"
+    for elem in args_dict:
+        if args_dict[elem] is None:
+            continue
+        
+        elif elem == "subcommand":
+            text += f"{elem}: {args_dict[elem]}\n"
+            continue
+        
+        true_name = "--" + elem.replace("_", "-")
+        text += f"{true_name}: {args_dict[elem]}\n"
     
-    text += f"--update: {args.update}\n\n"
+    text += "\n"
     
     text += "## Database ##\n"
     for key in db_path:
