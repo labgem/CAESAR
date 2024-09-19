@@ -966,7 +966,7 @@ def hmmsearch_cmd(subcommand: argparse._SubParsersAction):
     hmmsearch.add_argument("-t", "--threads", type=int, metavar="", default=6,
                            help="number of cpu threads [default: 6]")
     hmmsearch.add_argument("-m", "--mem", type=str, metavar="", default="4G",
-                           help=argparse.SUPPRESS)
+                           help="memory limit for the clustering step [default: 4G]")
     
     required_opt = hmmsearch.add_argument_group("Mandatory inputs")
     required_opt.add_argument("-c", "--config", type=str, metavar="",
@@ -1039,7 +1039,7 @@ def filter_cmd(subcommand: argparse._SubParsersAction):
     filter_sub.add_argument("-t", "--threads", type=int, metavar="", default=6,
                            help="number of cpu threads [default: 6]")
     filter_sub.add_argument("-m", "--mem", type=str, metavar="", default="4G",
-                            help=argparse.SUPPRESS)
+                            help="memory limit for the clustering step [default: 4G]")
     
     required_opt = filter_sub.add_argument_group("Mandatory inputs")
     required_opt.add_argument("-c", "--config", type=str, metavar="",
@@ -1118,7 +1118,7 @@ def clustering_cmd(subcommand: argparse._SubParsersAction):
     clustering.add_argument("-t", "--threads", type=int, metavar="", default=6,
                            help="number of cpu threads [default: 6]")
     clustering.add_argument("-m", "--mem", type=str, metavar="", default="4G",
-                           help=argparse.SUPPRESS)
+                           help="memory limit for the clustering step [default: 4G]")
     
     required_opt = clustering.add_argument_group("Mandatory inputs")
     required_opt.add_argument("-c", "--config", type=str, metavar="",
