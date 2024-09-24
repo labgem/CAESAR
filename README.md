@@ -9,7 +9,7 @@
 
 # CAndidate Enzyme SeARch
 
-CAESAR is a pipeline to (1) search candidates sequences, based on references sequences or hmm pattern, (2) clustered them, (3) selects candidates in each clusters and (4) build a phylogenetic tree.
+CAESAR is a pipeline to (1) search candidates sequence, based on reference sequences or hmm pattern, (2) cluster them, (3) select candidates in each cluster and (4) build a phylogenetic tree.
 
 ## Installation
 
