@@ -66,7 +66,7 @@ All the `name_db` key correspond to a database, the `dmnd` format is required to
 
 The `strain_library` key just give the path of the strain_library.
 
-The `candidate_selection`` key list the priority order for the selection. In the above case, the sequences in organism/strain find in the strain_library have priority on organism only in external collection. The `other` can be used if you have access on the sequences inside the `other_db`.
+The `candidate_selection` key list the priority order for the selection. In the above case, the sequences in organism/strain find in the strain_library have priority on organism only in external collection. The `other` can be used if you have access on the sequences inside the `other_db`.
 
 The `slurm`, `parallel` and `module` key are optionnal.
 
