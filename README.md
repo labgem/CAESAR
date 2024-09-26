@@ -51,6 +51,8 @@ other_db:
     - faa: "/home/user/other.faa"  # amino acid sequences in fasta format
     - fna: "/home/user/other.fna"  # nucleic acid sequences in fasta format
 strain_library: "/home/user/strain_library.tsv"
+date:
+    - trembl: "2024_07_28"
 candidate_selection:
     - strain_library
     - order  # strain available in the ATCC or DSM collection
@@ -65,6 +67,8 @@ module:  # if the system use module to load software...
 All the `name_db` key correspond to a database, the `dmnd` format is required to use the blastp of diamond, the `faa` format is required to use hmmsearch. For the uniprot or nr database, only one of them is necessary. For other database, theses two format is required to use blastp, but only the `faa` if you used hmmsearch. For CAESAR to be able to provide the nucleic sequences of the candidates, the sequences (`fna`) must also be provided (for uniprot and nr they are retrieved via database queries).
 
 The `strain_library` key just give the path of the strain_library.
+
+The `date` key is used to indicate a publication or update date for a database. This key is optional; without it, the file creation date is written to the summary.out file.
 
 The `candidate_selection` key list the priority order for the selection. In the above case, the sequences in organism/strain find in the strain_library have priority on organism only in external collection. The `other` can be used if you have access on the sequences inside the `other_db`.
 
