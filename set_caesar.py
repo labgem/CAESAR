@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import difflib
 import logging
 import os
@@ -825,7 +826,7 @@ def set_phylo(slurm, args):
     
     return text
             
-def write_summary(args, db_path, outdir):
+def write_summary(args, db_path, yml, outdir):
     """Writes summary.out
 
     Args:
@@ -835,7 +836,9 @@ def write_summary(args, db_path, outdir):
     """
     
     summary_file = outdir / "summary.out"
-    text = "## Command ##\n"
+    text =  "## Date ##\n"
+    text += f"{datetime.datetime.now()}\n\n"   
+    text += "## Command ##\n"
     text += "python " + " ".join(sys.argv) + "\n\n"
     
     text += "## Options ##\n"
@@ -855,11 +858,26 @@ def write_summary(args, db_path, outdir):
     
     text += "\n"
     
+    date_dict = {}
+    
+    if "date" in yml:
+        for elem in yml["date"]:
+            date_dict.update(elem)
+    
     text += "## Database ##\n"
     for key in db_path:
         text += f"{key}_db:\n"
+        
         for sub_key in db_path[key]:
-            text += f'- {sub_key}: "{db_path[key][sub_key]}"\n'
+            p = db_path[key][sub_key]
+            
+            if key in date_dict:
+                text += f'- {sub_key}: "{p}" - {date_dict[key]}\n'
+                
+            else:
+                timestamp = os.path.getctime(p)
+                t = datetime.datetime.fromtimestamp(timestamp)
+                text += f'- {sub_key}: "{p}" - {t:%Y_%m_%d}\n'
     
     text += "\n"
     
@@ -1277,6 +1295,6 @@ if __name__ == "__main__":
     caesar_file = Path.cwd().absolute() / "run_caesar.sh"
     caesar_file.write_text(caesar_text)
     
-    write_summary(args, db_path, outdir)
+    write_summary(args, db_path, yml, outdir)
     
     logging.info("To run the pipeline:\n\nbash ./run_caesar.sh")
