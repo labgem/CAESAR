@@ -1000,7 +1000,7 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
         hmm_data (bool): data from hmm or not
     """
     
-    text = "## Candidate Selection ##\nCategory\tNumber of candidates\n"
+    text = "## Candidate Selection ##\nCategory\tNumber_of_candidates\tEnd_of_analysis\n"
     cluster_without_cand = 0
     results_categories = {"strain_library":{"table":"", "faa":"", "fna":""},
                           "order":{"table":"", "faa":"", "fna":""}}
@@ -1097,7 +1097,8 @@ def write_results(selected_cand_per_clust, clusters, clusters_sources, all_cand,
     
     # Loop to writes results per category       
     for category in results_categories:
-        text += f"{category}\t{nb_cand_per_cat[category]}\n"
+        d = datetime.datetime.now()
+        text += f"{category}\t{nb_cand_per_cat[category]}\t{d:%Y-%m-%d %H:%M}\n"
         if len(results_categories[category]["table"]) == 0:
             continue
         
