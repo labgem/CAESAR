@@ -591,7 +591,7 @@ def set_candidate_selection(slurm, args):
             
         if args.update is not None:
             update = Path(args.update).absolute()
-            text += f"-u {update}"
+            text += f" -u {update}"
             
         text += ")\n"
         
